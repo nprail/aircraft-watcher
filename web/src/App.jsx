@@ -380,6 +380,29 @@ export default function App() {
           />
         </Card>
 
+        {/* Blacklist */}
+        <Card
+          title="Blacklist"
+          description="Never alert on aircraft matching these callsigns or ICAO type codes, even if they would otherwise match."
+        >
+          <Field label="Blacklisted Callsigns" hint="Exact callsign match — e.g. UAL123">
+            <TagInput
+              items={settings.blacklistCallsigns ?? []}
+              onChange={(v) => update('blacklistCallsigns', v)}
+              placeholder="e.g. UAL123 — press Enter to add"
+              transform={(s) => s.toUpperCase()}
+            />
+          </Field>
+          <Field label="Blacklisted Aircraft Types" hint="ICAO type designator — e.g. C172, B738">
+            <TagInput
+              items={settings.blacklistTypes ?? []}
+              onChange={(v) => update('blacklistTypes', v)}
+              placeholder="e.g. C172 — press Enter to add"
+              transform={(s) => s.toUpperCase()}
+            />
+          </Field>
+        </Card>
+
         {/* Military Detection */}
         <Card title="Military Detection">
           <div className="flex items-start justify-between gap-4">

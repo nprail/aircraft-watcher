@@ -8,6 +8,7 @@ A Node.js service that polls an ADS-B aircraft feed and sends webhook alerts whe
 - Military aircraft detection: explicit flag from aircraft DB, category strings, or callsign prefix matching
 - Civilian type exclusion list to suppress false positives (Cessnas, Pipers, etc.)
 - Watch list alerts for specific callsigns
+- Blacklist to permanently suppress alerts for specific callsigns or ICAO aircraft types
 - Enriches aircraft data from the [tar1090-db](https://github.com/wiedehopf/tar1090-db) database (registration, type code, military flag), refreshed every 24 hours
 - Webhook notifications with a link to the tar1090 map
 - Per-aircraft alert cooldown to prevent notification floods, persisted across restarts
@@ -58,6 +59,8 @@ All application settings are managed via `data/settings.json` and can be updated
 | `maxAircraftPerPoll`       | `500`                                      | Safety cap on aircraft processed per poll cycle                      |
 | `fetchTimeoutMs`           | `15000`                                    | HTTP fetch timeout for the feed request (ms)                         |
 | `watchCallsigns`           | `[]`                                       | Callsigns to always alert on (case-insensitive exact match)          |
+| `blacklistCallsigns`       | `[]`                                       | Callsigns to never alert on, even if they match the watch list or military heuristics |
+| `blacklistTypes`           | `[]`                                       | ICAO type designators (e.g. `C172`, `B738`) to never alert on       |
 | `enableMilitaryHeuristics` | `true`                                     | Master toggle for military aircraft detection                        |
 | `milCallsignPrefixes`      | _(60+ entries — see source)_               | Callsign prefixes that imply military (e.g. `RCH`, `REACH`, `REAPER`) |
 | `webhookUrls`              | `[]`                                       | HTTP POST targets for alert notifications                            |
@@ -93,6 +96,7 @@ The web UI is served at `http://localhost:3000` (or the configured `WEB_PORT`). 
 - **Alert Settings** — alert cooldown
 - **Location** — latitude/longitude for distance calculations
 - **Watch Callsigns** — manage the callsign watch list
+- **Blacklist** — suppress alerts by callsign or ICAO type code (overrides all other rules)
 - **Military Detection** — toggle heuristics on/off, edit callsign prefixes
 - **Webhooks** — add/remove webhook URLs
 

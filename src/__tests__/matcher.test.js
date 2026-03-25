@@ -130,6 +130,8 @@ describe('isInteresting', () => {
     watchCallsigns: ['RCH210', 'UAL123'],
     enableMilitaryHeuristics: true,
     milCallsignPrefixes: ['RCH', 'EAGLE'],
+    blacklistCallsigns: [],
+    blacklistTypes: [],
   }
 
   test('returns true for watched callsign', () => {
@@ -147,5 +149,39 @@ describe('isInteresting', () => {
   })
   test('returns true for military: true even with heuristics', () => {
     expect(isInteresting({ military: true }, config)).toBe(true)
+  })
+
+  describe('blacklist', () => {
+    test('blacklisted callsign suppresses a watched callsign', () => {
+      const cfg = { ...config, blacklistCallsigns: ['UAL123'] }
+      expect(isInteresting({ flight: 'UAL123' }, cfg)).toBe(false)
+    })
+    test('blacklisted callsign suppresses a military callsign', () => {
+      const cfg = { ...config, blacklistCallsigns: ['RCH001'] }
+      expect(isInteresting({ flight: 'RCH001' }, cfg)).toBe(false)
+    })
+    test('non-blacklisted callsign is unaffected', () => {
+      const cfg = { ...config, blacklistCallsigns: ['UAL123'] }
+      expect(isInteresting({ flight: 'RCH210' }, cfg)).toBe(true)
+    })
+    test('blacklisted type suppresses a military aircraft', () => {
+      const cfg = { ...config, blacklistTypes: ['B738'] }
+      expect(isInteresting({ flight: 'EAGLE01', t: 'B738' }, cfg)).toBe(false)
+    })
+    test('blacklisted type suppresses a watched callsign', () => {
+      const cfg = { ...config, blacklistTypes: ['B738'] }
+      expect(isInteresting({ flight: 'UAL123', t: 'B738' }, cfg)).toBe(false)
+    })
+    test('non-blacklisted type is unaffected', () => {
+      const cfg = { ...config, blacklistTypes: ['B738'] }
+      expect(isInteresting({ flight: 'RCH210', t: 'C130' }, cfg)).toBe(true)
+    })
+    test('empty blacklists do not suppress anything', () => {
+      expect(isInteresting({ flight: 'RCH210' }, config)).toBe(true)
+    })
+    test('type matching is case-insensitive', () => {
+      const cfg = { ...config, blacklistTypes: ['B738'] }
+      expect(isInteresting({ flight: 'EAGLE01', t: 'b738' }, cfg)).toBe(false)
+    })
   })
 })

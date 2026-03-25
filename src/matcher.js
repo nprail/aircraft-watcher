@@ -242,6 +242,25 @@ function isMilitaryMatch(aircraft, milCallsignPrefixes) {
  * @param {object} config - parsed config object
  */
 function isInteresting(aircraft, config) {
+  // Blacklist checks — suppress regardless of any watch/military rules
+  const callsign = getCallsign(aircraft)
+  if (
+    callsign &&
+    config.blacklistCallsigns &&
+    config.blacklistCallsigns.length > 0 &&
+    config.blacklistCallsigns.includes(callsign)
+  )
+    return false
+
+  const typeCode = (aircraft.t || aircraft.type || '').trim().toUpperCase()
+  if (
+    typeCode &&
+    config.blacklistTypes &&
+    config.blacklistTypes.length > 0 &&
+    config.blacklistTypes.includes(typeCode)
+  )
+    return false
+
   if (isCallsignMatch(aircraft, config.watchCallsigns)) return true
   if (
     config.enableMilitaryHeuristics &&
