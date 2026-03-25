@@ -52,13 +52,7 @@ async function processPoll() {
 
       // Build a cycle-level key to avoid duplicate alerts within the same poll
       const cycleKey =
-        ac.hex ||
-        ac.r ||
-        ac.registration ||
-        ac.tail ||
-        ac.flight ||
-        ac.callsign ||
-        JSON.stringify(ac)
+        ac.hex || ac.r || ac.flight || ac.callsign || JSON.stringify(ac)
       if (alreadyAlertedThisCycle.has(cycleKey)) continue
 
       if (!deduper.shouldAlert(ac)) continue
@@ -67,7 +61,6 @@ async function processPoll() {
 
       logger.info('Interesting aircraft detected', {
         hex: ac.hex,
-        tail: ac.r || ac.registration || ac.tail,
         callsign: ac.flight || ac.callsign,
         lat: ac.lat,
         lon: ac.lon,
@@ -128,7 +121,7 @@ logger.info('Aircraft watcher starting', {
   feedUrl: config.feedUrl,
   pollIntervalSec: config.pollIntervalSec,
   alertCooldownSec: config.alertCooldownSec,
-  watchTails: config.watchTails,
+  watchCallsigns: config.watchCallsigns,
   enableMilitaryHeuristics: config.enableMilitaryHeuristics,
   recipients: config.twilio.to.length,
 })

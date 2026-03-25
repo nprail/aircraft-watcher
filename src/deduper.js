@@ -4,7 +4,7 @@ const { getHex, getCallsign } = require('./matcher')
 
 /**
  * Builds a stable deduplication key for an aircraft.
- * Prefers hex, then falls back to tail, then callsign.
+ * Prefers hex, then falls back to callsign.
  */
 function aircraftKey(aircraft) {
   const hex = getHex(aircraft)

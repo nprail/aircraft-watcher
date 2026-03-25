@@ -1,11 +1,11 @@
 # aircraft-watcher
 
-A Node.js service that polls an ADS-B aircraft feed and sends SMS alerts via Twilio when interesting aircraft are detected — watched tail numbers or military aircraft.
+A Node.js service that polls an ADS-B aircraft feed and sends SMS alerts via Twilio when interesting aircraft are detected — watched callsigns or military aircraft.
 
 ## Features
 
 - Polls a live ADS-B JSON feed at a configurable interval
-- Detects aircraft by tail/registration allowlist
+- Detects aircraft by callsign allowlist
 - Optional military heuristics: explicit `military` flag, category strings, or callsign prefix matching
 - SMS alerts sent via Twilio to one or more recipients
 - Per-aircraft cooldown to prevent alert floods
@@ -51,7 +51,7 @@ All configuration is via environment variables (loaded from `.env` via dotenv).
 | `ALERT_COOLDOWN_SEC` | `1200` | Seconds before re-alerting on the same aircraft (20 min) |
 | `MAX_AIRCRAFT_PER_POLL` | `500` | Safety cap on aircraft processed per cycle |
 | `FETCH_TIMEOUT_MS` | `15000` | HTTP fetch timeout for the feed request (ms) |
-| `WATCH_TAILS` | _(empty)_ | Comma-separated tail numbers to always alert on (case-insensitive) |
+| `WATCH_CALLSIGNS` | _(empty)_ | Comma-separated callsigns to always alert on (case-insensitive) |
 | `ENABLE_MILITARY_HEURISTICS` | `true` | Enable military aircraft detection |
 | `MIL_CALLSIGN_PREFIXES` | _(see below)_ | Comma-separated callsign prefixes for military detection |
 | `TWILIO_ACCOUNT_SID` | _(required)_ | Twilio account SID |
@@ -75,7 +75,7 @@ ORION, NEPTUNE, HERCULES
 
 ```
 ✈ Aircraft Alert
-Tail: N12345  Hex: abc123
+Hex: abc123
 Callsign: RCH210  Cat: A3
 Pos: 37.1230, -122.4560
 Map: https://www.google.com/maps?q=37.123000,-122.456000
@@ -88,7 +88,7 @@ Last seen: 2.5s ago
 ```
 src/
   config.js       — Parse all env vars into a config object
-  matcher.js      — Aircraft matching logic (tail, military)
+  matcher.js      — Aircraft matching logic (callsign, military)
   deduper.js      — Alert deduplication with cooldown tracking
   sms.js          — Format and send SMS via Twilio
   logger.js       — Structured JSON logger
