@@ -1,0 +1,19 @@
+services:
+  aircraft-watcher:
+    image: ghcr.io/nprail/aircraft-watcher:main
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DEDUPER_STATE_FILE=/app/data/.deduper-state.json
+      - SETTINGS_FILE=/app/data/settings.json
+    volumes:
+      - ./data:/app/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

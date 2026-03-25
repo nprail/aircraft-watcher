@@ -1,0 +1,9 @@
+node_modules/
+.env
+dist/
+coverage/
+*.log
+.DS_Store
+.deduper-state.json
+data/settings.json
+web/dist/
