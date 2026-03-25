@@ -37,6 +37,7 @@ const config = {
   pollIntervalSec: parsePositiveInt(process.env.POLL_INTERVAL_SEC, 10),
   alertCooldownSec: parsePositiveInt(process.env.ALERT_COOLDOWN_SEC, 1200),
   maxAircraftPerPoll: parsePositiveInt(process.env.MAX_AIRCRAFT_PER_POLL, 500),
+  fetchTimeoutMs: parsePositiveInt(process.env.FETCH_TIMEOUT_MS, 15000),
 
   watchTails: parseStringList(process.env.WATCH_TAILS, []).map((t) => t.toUpperCase()),
 

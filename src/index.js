@@ -14,7 +14,7 @@ let pollTimer = null;
 
 async function fetchAircraft() {
   const res = await fetch(config.feedUrl, {
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(config.fetchTimeoutMs),
   });
   if (!res.ok) {
     throw new Error(`Feed returned HTTP ${res.status} ${res.statusText}`);

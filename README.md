@@ -50,6 +50,7 @@ All configuration is via environment variables (loaded from `.env` via dotenv).
 | `POLL_INTERVAL_SEC` | `10` | Seconds between feed polls |
 | `ALERT_COOLDOWN_SEC` | `1200` | Seconds before re-alerting on the same aircraft (20 min) |
 | `MAX_AIRCRAFT_PER_POLL` | `500` | Safety cap on aircraft processed per cycle |
+| `FETCH_TIMEOUT_MS` | `15000` | HTTP fetch timeout for the feed request (ms) |
 | `WATCH_TAILS` | _(empty)_ | Comma-separated tail numbers to always alert on (case-insensitive) |
 | `ENABLE_MILITARY_HEURISTICS` | `true` | Enable military aircraft detection |
 | `MIL_CALLSIGN_PREFIXES` | _(see below)_ | Comma-separated callsign prefixes for military detection |
