@@ -9,6 +9,10 @@ const { Deduper } = require('./deduper')
 const { formatMessage } = require('./formatter')
 const { notifyWebhook } = require('./webhook')
 const aircraftDb = require('./aircraftDb')
+const { startServer } = require('./server')
+
+const WEB_PORT = parseInt(process.env.WEB_PORT, 10) || 3000
+startServer(WEB_PORT)
 
 const deduper = new Deduper(config.alertCooldownSec)
 let running = true
