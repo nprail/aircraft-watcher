@@ -107,13 +107,6 @@ const config = {
     DEFAULT_MIL_PREFIXES,
   ).map((p) => p.toUpperCase()),
 
-  twilio: {
-    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
-    authToken: process.env.TWILIO_AUTH_TOKEN || '',
-    from: process.env.TWILIO_FROM || '',
-    to: parseStringList(process.env.TWILIO_TO, []),
-  },
-
   webhookUrl: process.env.WEBHOOK_URL || '',
 
   location: {

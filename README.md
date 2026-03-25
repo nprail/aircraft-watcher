@@ -1,13 +1,12 @@
 # aircraft-watcher
 
-A Node.js service that polls an ADS-B aircraft feed and sends SMS alerts via Twilio when interesting aircraft are detected — watched callsigns or military aircraft.
+A Node.js service that polls an ADS-B aircraft feed and sends webhook alerts when interesting aircraft are detected — watched callsigns or military aircraft.
 
 ## Features
 
 - Polls a live ADS-B JSON feed at a configurable interval
-- Detects aircraft by callsign allowlist
 - Optional military heuristics: explicit `military` flag, category strings, or callsign prefix matching
-- SMS alerts sent via Twilio to one or more recipients
+- Webhook notifications
 - Per-aircraft cooldown to prevent alert floods
 - Structured JSON logging to stdout
 - Graceful shutdown on SIGTERM/SIGINT
@@ -25,7 +24,7 @@ npm install
 
 ```bash
 cp .env.example .env
-# Edit .env with your Twilio credentials and watch list
+# Edit .env with your configuration
 ```
 
 ### 3. Run
@@ -54,10 +53,6 @@ All configuration is via environment variables (loaded from `.env` via dotenv).
 | `WATCH_CALLSIGNS`            | _(empty)_                                  | Comma-separated callsigns to always alert on (case-insensitive) |
 | `ENABLE_MILITARY_HEURISTICS` | `true`                                     | Enable military aircraft detection                              |
 | `MIL_CALLSIGN_PREFIXES`      | _(see below)_                              | Comma-separated callsign prefixes for military detection        |
-| `TWILIO_ACCOUNT_SID`         | _(required)_                               | Twilio account SID                                              |
-| `TWILIO_AUTH_TOKEN`          | _(required)_                               | Twilio auth token                                               |
-| `TWILIO_FROM`                | _(required)_                               | Twilio sender phone number                                      |
-| `TWILIO_TO`                  | _(required)_                               | Comma-separated recipient phone numbers                         |
 
 ### Default military callsign prefixes
 
@@ -71,7 +66,7 @@ HORNET, TOMCAT, VIGILANTE, INTRUDER, PROWLER, HAWKEYE, VIKING, CORSAIR,
 ORION, NEPTUNE, HERCULES
 ```
 
-## SMS Alert Format
+## Alert Format
 
 ```
 ✈ Aircraft Alert
@@ -90,8 +85,8 @@ src/
   config.js       — Parse all env vars into a config object
   matcher.js      — Aircraft matching logic (callsign, military)
   deduper.js      — Alert deduplication with cooldown tracking
-  sms.js          — Format and send SMS via Twilio
   logger.js       — Structured JSON logger
+  webhook.js      — Send webhook notifications
   index.js        — Main entry point and poll loop
   __tests__/
     matcher.test.js
@@ -115,5 +110,5 @@ All output is JSON lines to stdout:
 ```json
 {"level":"info","time":"2024-01-15T12:00:00.000Z","msg":"Aircraft watcher starting","data":{...}}
 {"level":"info","time":"2024-01-15T12:00:10.000Z","msg":"Interesting aircraft detected","data":{"hex":"abc123",...}}
-{"level":"info","time":"2024-01-15T12:00:10.100Z","msg":"SMS sent","data":{"to":"+12025551234","sid":"SM..."}}
+{"level":"info","time":"2024-01-15T12:00:10.100Z","msg":"Webhook notified","data":{}}
 ```

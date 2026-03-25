@@ -1,7 +1,7 @@
 {
   "name": "aircraft-watcher",
   "version": "1.0.0",
-  "description": "Polls ADS-B aircraft feed and sends SMS alerts via Twilio for interesting aircraft",
+  "description": "Polls ADS-B aircraft feed and sends alerts for interesting aircraft",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -9,8 +9,7 @@
     "test": "jest --forceExit"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "twilio": "^5.3.3"
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "jest": "^29.7.0"

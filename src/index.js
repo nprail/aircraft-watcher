@@ -6,7 +6,6 @@ const config = require('./config')
 const logger = require('./logger')
 const { isInteresting } = require('./matcher')
 const { Deduper } = require('./deduper')
-const { sendAlert } = require('./sms')
 const { formatMessage } = require('./formatter')
 const { notifyWebhook } = require('./webhook')
 const aircraftDb = require('./aircraftDb')
@@ -90,19 +89,6 @@ async function processPoll() {
         lon: ac.lon,
       })
 
-      // try {
-      //   const results = await sendAlert(ac, config)
-      //   for (const r of results) {
-      //     if (r.error) {
-      //       logger.error('SMS send failed', { to: r.to, error: r.error })
-      //     } else {
-      //       logger.info('SMS sent', { to: r.to, sid: r.sid })
-      //     }
-      //   }
-      // } catch (smsErr) {
-      //   logger.error('SMS error', { error: smsErr.message })
-      // }
-
       try {
         const callsign = ac.flight || ac.callsign || ac.hex || 'Unknown'
         await notifyWebhook({
@@ -160,7 +146,6 @@ logger.info('Aircraft watcher starting', {
   alertCooldownSec: config.alertCooldownSec,
   watchCallsigns: config.watchCallsigns,
   enableMilitaryHeuristics: config.enableMilitaryHeuristics,
-  recipients: config.twilio.to.length,
 })
 
 aircraftDb
