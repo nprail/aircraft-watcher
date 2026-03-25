@@ -1,5 +1,8 @@
 'use strict'
 
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
 const { Deduper, aircraftKey } = require('../deduper')
 
 describe('aircraftKey', () => {
@@ -95,6 +98,69 @@ describe('Deduper', () => {
       d.shouldAlert({ hex: 'aaa' }, now)
       d.evictExpired(now + 61000)
       expect(d.shouldAlert({ hex: 'aaa' }, now + 62000)).toBe(true)
+    })
+  })
+
+  describe('persistence (load/save)', () => {
+    let tmpDir
+    let stateFile
+
+    beforeEach(async () => {
+      tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'deduper-test-'))
+      stateFile = path.join(tmpDir, 'state.json')
+    })
+
+    afterEach(async () => {
+      await fs.promises.rm(tmpDir, { recursive: true, force: true })
+    })
+
+    test('save writes JSON file and load restores state', async () => {
+      const now = Date.now()
+      const d1 = new Deduper(1200)
+      d1.shouldAlert({ hex: 'aaa' }, now)
+      d1.shouldAlert({ hex: 'bbb' }, now)
+      await d1.save(stateFile)
+
+      const d2 = new Deduper(1200)
+      await d2.load(stateFile)
+      expect(d2.size).toBe(2)
+      expect(d2.shouldAlert({ hex: 'aaa' }, now + 100)).toBe(false)
+      expect(d2.shouldAlert({ hex: 'bbb' }, now + 100)).toBe(false)
+    })
+
+    test('load on missing file does not throw', async () => {
+      const d = new Deduper(1200)
+      await expect(d.load(stateFile)).resolves.toBeUndefined()
+      expect(d.size).toBe(0)
+    })
+
+    test('load drops entries that have already expired', async () => {
+      const now = Date.now()
+      const d1 = new Deduper(60) // 60-second cooldown
+      d1.shouldAlert({ hex: 'aaa' }, now - 61000) // expired
+      d1.shouldAlert({ hex: 'bbb' }, now) // still active
+      await d1.save(stateFile)
+
+      const d2 = new Deduper(60)
+      await d2.load(stateFile)
+      expect(d2.size).toBe(1)
+      expect(d2.getLastAlertTime({ hex: 'bbb' })).toBe(now)
+    })
+
+    test('save is atomic (file is valid JSON even on concurrent calls)', async () => {
+      const d = new Deduper(1200)
+      d.shouldAlert({ hex: 'aaa' })
+      await Promise.all([d.save(stateFile), d.save(stateFile)])
+      const raw = await fs.promises.readFile(stateFile, 'utf8')
+      expect(() => JSON.parse(raw)).not.toThrow()
+    })
+
+    test('save creates parent directory if missing', async () => {
+      const nested = path.join(tmpDir, 'sub', 'dir', 'state.json')
+      const d = new Deduper(1200)
+      d.shouldAlert({ hex: 'aaa' })
+      await d.save(nested)
+      expect(fs.existsSync(nested)).toBe(true)
     })
   })
 

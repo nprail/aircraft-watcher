@@ -7,13 +7,17 @@ const logger = require('./logger')
 const { isInteresting } = require('./matcher')
 const { Deduper } = require('./deduper')
 const { sendAlert } = require('./sms')
+const { formatMessage } = require('./formatter')
+const { notifyWebhook } = require('./webhook')
+const aircraftDb = require('./aircraftDb')
 
 const deduper = new Deduper(config.alertCooldownSec)
 let running = true
 let pollTimer = null
 
 async function fetchAircraft() {
-  const res = await fetch(config.feedUrl, {
+  const feedUrl = `${config.tar1090Url.replace(/\/$/, '')}/data/aircraft.json`
+  const res = await fetch(feedUrl, {
     signal: AbortSignal.timeout(config.fetchTimeoutMs),
   })
   if (!res.ok) {
@@ -43,11 +47,25 @@ async function processPoll() {
   }
 
   deduper.evictExpired()
+  await deduper.save(config.deduperStateFile).catch((err) =>
+    logger.warn('Failed to save deduper state after eviction', {
+      error: err.message,
+    }),
+  )
 
   const alreadyAlertedThisCycle = new Set()
 
   for (const ac of aircraft) {
     try {
+      // Enrich with DB data (registration, type code, military flag)
+      const hex = ac.hex || ac.icao || ''
+      const dbInfo = aircraftDb.getAircraftInfo(hex)
+      if (dbInfo) {
+        if (!ac.r && dbInfo.registration) ac.r = dbInfo.registration
+        if (!ac.t && dbInfo.typeCode) ac.t = dbInfo.typeCode
+        if (dbInfo.isMilitary) ac.military = true
+      }
+
       if (!isInteresting(ac, config)) continue
 
       // Build a cycle-level key to avoid duplicate alerts within the same poll
@@ -59,6 +77,12 @@ async function processPoll() {
 
       alreadyAlertedThisCycle.add(cycleKey)
 
+      await deduper
+        .save(config.deduperStateFile)
+        .catch((err) =>
+          logger.warn('Failed to save deduper state', { error: err.message }),
+        )
+
       logger.info('Interesting aircraft detected', {
         hex: ac.hex,
         callsign: ac.flight || ac.callsign,
@@ -66,17 +90,29 @@ async function processPoll() {
         lon: ac.lon,
       })
 
+      // try {
+      //   const results = await sendAlert(ac, config)
+      //   for (const r of results) {
+      //     if (r.error) {
+      //       logger.error('SMS send failed', { to: r.to, error: r.error })
+      //     } else {
+      //       logger.info('SMS sent', { to: r.to, sid: r.sid })
+      //     }
+      //   }
+      // } catch (smsErr) {
+      //   logger.error('SMS error', { error: smsErr.message })
+      // }
+
       try {
-        const results = await sendAlert(ac, config)
-        for (const r of results) {
-          if (r.error) {
-            logger.error('SMS send failed', { to: r.to, error: r.error })
-          } else {
-            logger.info('SMS sent', { to: r.to, sid: r.sid })
-          }
-        }
-      } catch (smsErr) {
-        logger.error('SMS error', { error: smsErr.message })
+        const callsign = ac.flight || ac.callsign || ac.hex || 'Unknown'
+        await notifyWebhook({
+          title: `Aircraft Alert: ${callsign}`,
+          message: formatMessage(ac),
+          url: `${config.tar1090Url.replace(/\/$/, '')}/?icao=${ac.hex || ''}`,
+        })
+        logger.info('Webhook notified')
+      } catch (webhookErr) {
+        logger.error('Webhook error', { error: webhookErr.message })
       }
     } catch (acErr) {
       logger.error('Error processing aircraft', {
@@ -103,6 +139,7 @@ function shutdown(signal) {
   logger.info(`Received ${signal}, shutting down gracefully`)
   running = false
   if (pollTimer) clearTimeout(pollTimer)
+  aircraftDb.shutdown()
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'))
@@ -118,7 +155,7 @@ process.on('unhandledRejection', (reason) => {
 })
 
 logger.info('Aircraft watcher starting', {
-  feedUrl: config.feedUrl,
+  tar1090Url: config.tar1090Url,
   pollIntervalSec: config.pollIntervalSec,
   alertCooldownSec: config.alertCooldownSec,
   watchCallsigns: config.watchCallsigns,
@@ -126,7 +163,14 @@ logger.info('Aircraft watcher starting', {
   recipients: config.twilio.to.length,
 })
 
-pollLoop().catch((err) => {
-  logger.error('Fatal poll loop error', { error: err.message })
-  process.exit(1)
-})
+aircraftDb
+  .init()
+  .then(() => deduper.load(config.deduperStateFile))
+  .catch((err) =>
+    logger.warn('Failed to load deduper state', { error: err.message }),
+  )
+  .then(() => pollLoop())
+  .catch((err) => {
+    logger.error('Fatal poll loop error', { error: err.message })
+    process.exit(1)
+  })

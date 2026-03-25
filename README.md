@@ -44,20 +44,20 @@ docker compose up -d
 
 All configuration is via environment variables (loaded from `.env` via dotenv).
 
-| Variable | Default | Description |
-|---|---|---|
-| `AIRCRAFT_FEED_URL` | `https://airspace.prail.space/combine1090/data/aircraft.json` | ADS-B JSON feed URL |
-| `POLL_INTERVAL_SEC` | `10` | Seconds between feed polls |
-| `ALERT_COOLDOWN_SEC` | `1200` | Seconds before re-alerting on the same aircraft (20 min) |
-| `MAX_AIRCRAFT_PER_POLL` | `500` | Safety cap on aircraft processed per cycle |
-| `FETCH_TIMEOUT_MS` | `15000` | HTTP fetch timeout for the feed request (ms) |
-| `WATCH_CALLSIGNS` | _(empty)_ | Comma-separated callsigns to always alert on (case-insensitive) |
-| `ENABLE_MILITARY_HEURISTICS` | `true` | Enable military aircraft detection |
-| `MIL_CALLSIGN_PREFIXES` | _(see below)_ | Comma-separated callsign prefixes for military detection |
-| `TWILIO_ACCOUNT_SID` | _(required)_ | Twilio account SID |
-| `TWILIO_AUTH_TOKEN` | _(required)_ | Twilio auth token |
-| `TWILIO_FROM` | _(required)_ | Twilio sender phone number |
-| `TWILIO_TO` | _(required)_ | Comma-separated recipient phone numbers |
+| Variable                     | Default                                    | Description                                                     |
+| ---------------------------- | ------------------------------------------ | --------------------------------------------------------------- |
+| `TAR1090_URL`                | `https://airspace.prail.space/combine1090` | URL of the TAR1090 web interface                                |
+| `POLL_INTERVAL_SEC`          | `10`                                       | Seconds between feed polls                                      |
+| `ALERT_COOLDOWN_SEC`         | `1200`                                     | Seconds before re-alerting on the same aircraft (20 min)        |
+| `MAX_AIRCRAFT_PER_POLL`      | `500`                                      | Safety cap on aircraft processed per cycle                      |
+| `FETCH_TIMEOUT_MS`           | `15000`                                    | HTTP fetch timeout for the feed request (ms)                    |
+| `WATCH_CALLSIGNS`            | _(empty)_                                  | Comma-separated callsigns to always alert on (case-insensitive) |
+| `ENABLE_MILITARY_HEURISTICS` | `true`                                     | Enable military aircraft detection                              |
+| `MIL_CALLSIGN_PREFIXES`      | _(see below)_                              | Comma-separated callsign prefixes for military detection        |
+| `TWILIO_ACCOUNT_SID`         | _(required)_                               | Twilio account SID                                              |
+| `TWILIO_AUTH_TOKEN`          | _(required)_                               | Twilio auth token                                               |
+| `TWILIO_FROM`                | _(required)_                               | Twilio sender phone number                                      |
+| `TWILIO_TO`                  | _(required)_                               | Comma-separated recipient phone numbers                         |
 
 ### Default military callsign prefixes
 

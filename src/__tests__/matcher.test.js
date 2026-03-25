@@ -6,6 +6,7 @@ const {
   isInteresting,
   getCallsign,
   getHex,
+  CIVILIAN_TYPE_CODES,
 } = require('../matcher')
 
 describe('getCallsign', () => {
@@ -89,6 +90,38 @@ describe('isMilitaryMatch', () => {
   })
   test('does not partially match mid-string (REACH in NOREACH)', () => {
     expect(isMilitaryMatch({ flight: 'NOREACH1' }, milPrefixes)).toBe(false)
+  })
+
+  test('returns false for a Cessna 172 even with military: true', () => {
+    expect(isMilitaryMatch({ t: 'C172', military: true }, milPrefixes)).toBe(
+      false,
+    )
+  })
+  test('returns false for a Cessna 172 with a military callsign prefix', () => {
+    expect(isMilitaryMatch({ t: 'C172', flight: 'EAGLE01' }, milPrefixes)).toBe(
+      false,
+    )
+  })
+  test('returns false for a Citation jet (C525) with military: true', () => {
+    expect(isMilitaryMatch({ t: 'C525', military: true }, milPrefixes)).toBe(
+      false,
+    )
+  })
+  test('returns false for a Learjet (LJ45) with military callsign prefix', () => {
+    expect(isMilitaryMatch({ t: 'LJ45', flight: 'RCH001' }, milPrefixes)).toBe(
+      false,
+    )
+  })
+  test('type code check is case-insensitive', () => {
+    expect(isMilitaryMatch({ t: 'c172', military: true }, milPrefixes)).toBe(
+      false,
+    )
+  })
+  test('CIVILIAN_TYPE_CODES contains common civilian types', () => {
+    expect(CIVILIAN_TYPE_CODES.has('C172')).toBe(true)
+    expect(CIVILIAN_TYPE_CODES.has('PA28')).toBe(true)
+    expect(CIVILIAN_TYPE_CODES.has('SR22')).toBe(true)
+    expect(CIVILIAN_TYPE_CODES.has('LJ45')).toBe(true)
   })
 })
 

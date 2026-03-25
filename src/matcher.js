@@ -1,6 +1,186 @@
 'use strict'
 
 /**
+ * ICAO type designators for aircraft that are primarily civilian.
+ * Military variants of these airframes (e.g., USAF Cessna 172 trainers) are
+ * intentionally excluded from military alerts because they are not tactically
+ * significant and generate noise.
+ */
+const CIVILIAN_TYPE_CODES = new Set([
+  // Cessna piston singles
+  'C120',
+  'C140',
+  'C150',
+  'C152',
+  'C162',
+  'C170',
+  'C172',
+  'C175',
+  'C177',
+  'C180',
+  'C182',
+  'C185',
+  'C188',
+  'C195',
+  'C205',
+  'C206',
+  'C207',
+  'C208',
+  'C210',
+  // Cessna piston singles (high-performance)
+  'C400',
+  // Cessna piston twins
+  'C303',
+  'C310',
+  'C320',
+  'C336',
+  'C337',
+  'C340',
+  'C402',
+  'C404',
+  'C406',
+  'C414',
+  'C421',
+  'C425',
+  'C441',
+  // Cessna Citation jets
+  'C500',
+  'C501',
+  'C510',
+  'C525',
+  'C526',
+  'C25A',
+  'C25B',
+  'C25C',
+  'C550',
+  'C551',
+  'C560',
+  'C56X',
+  'C650',
+  'C680',
+  'C68A',
+  'C700',
+  'C750',
+  // Piper
+  'PA18',
+  'PA22',
+  'PA24',
+  'PA28',
+  'PA30',
+  'PA32',
+  'PA34',
+  'PA38',
+  'PA44',
+  'PA46',
+  'PA47',
+  // Beechcraft (non-King Air: King Air / C-12 variants are military)
+  'BE17',
+  'BE18',
+  'BE23',
+  'BE24',
+  'BE33',
+  'BE35',
+  'BE36',
+  'A36',
+  'V35',
+  'B36T',
+  'BE40',
+  'BE55',
+  'BE56',
+  'BE58',
+  'BE60',
+  'BE65',
+  'BE76',
+  'BE77',
+  'BE80',
+  'BE95',
+  'BE99',
+  // Learjet
+  'LJ23',
+  'LJ24',
+  'LJ25',
+  'LJ28',
+  'LJ31',
+  'LJ35',
+  'LJ36',
+  'LJ40',
+  'LJ45',
+  'LJ55',
+  'LJ60',
+  // Embraer Phenom
+  'E50P',
+  'E55P',
+  // Daher TBM
+  'TBM7',
+  'TBM8',
+  'TBM9',
+  // Pilatus
+  'PC6',
+  'PC12',
+  // Diamond
+  'DA20',
+  'DA40',
+  'DA42',
+  'DA62',
+  // Cirrus
+  'SR20',
+  'SR22',
+  'SF50',
+  // Mooney
+  'M20P',
+  'M20T',
+  // HondaJet
+  'HA4T',
+  // Dassault Falcon
+  'FA10',
+  'FA20',
+  'FA50',
+  'F900',
+  'F2TH',
+  'FA7X',
+  'F8EX',
+  // Gulfstream / Gulfstream American / Grumman American
+  'GLF2',
+  'GLF3',
+  'GLF4',
+  'GLF5',
+  'GLF6',
+  'G100',
+  'G150',
+  'G200',
+  'G280',
+  'G350',
+  'G400',
+  'G450',
+  'G500',
+  'G550',
+  'G600',
+  'G650',
+  'G700',
+  'G800',
+  'GALX',
+  'GA6C',
+  'GA7',
+  'GA8',
+  // Bombardier Challenger / Global
+  'CL30',
+  'CL35',
+  'CL60',
+  'CL604',
+  'CL605',
+  'CL650',
+  'GL5T',
+  'GLEX',
+  'GL7T',
+  // Hawker / BAe 125
+  'H25A',
+  'H25B',
+  'H25C',
+  'H400',
+  'H4000',
+])
+
+/**
  * Extracts the callsign/flight from an aircraft object.
  * Checks flight and callsign fields.
  */
@@ -34,6 +214,10 @@ function isCallsignMatch(aircraft, watchCallsigns) {
  * @param {string[]} milCallsignPrefixes - uppercased list of military callsign prefixes
  */
 function isMilitaryMatch(aircraft, milCallsignPrefixes) {
+  // Never flag a known civilian airframe as military (e.g. Cessna, private jets)
+  const typeCode = (aircraft.t || aircraft.type || '').trim().toUpperCase()
+  if (typeCode && CIVILIAN_TYPE_CODES.has(typeCode)) return false
+
   // Explicit military flag
   if (aircraft.military === true) return true
 
@@ -68,6 +252,7 @@ function isInteresting(aircraft, config) {
 }
 
 module.exports = {
+  CIVILIAN_TYPE_CODES,
   getCallsign,
   getHex,
   isCallsignMatch,

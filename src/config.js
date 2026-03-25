@@ -85,13 +85,14 @@ function parseStringList(value, defaultList) {
 }
 
 const config = {
-  feedUrl:
-    process.env.AIRCRAFT_FEED_URL ||
-    'https://airspace.prail.space/combine1090/data/aircraft.json',
+  tar1090Url:
+    process.env.TAR1090_URL || 'https://airspace.prail.space/combine1090',
   pollIntervalSec: parsePositiveInt(process.env.POLL_INTERVAL_SEC, 10),
   alertCooldownSec: parsePositiveInt(process.env.ALERT_COOLDOWN_SEC, 1200),
   maxAircraftPerPoll: parsePositiveInt(process.env.MAX_AIRCRAFT_PER_POLL, 500),
   fetchTimeoutMs: parsePositiveInt(process.env.FETCH_TIMEOUT_MS, 15000),
+
+  deduperStateFile: process.env.DEDUPER_STATE_FILE || '.deduper-state.json',
 
   watchCallsigns: parseStringList(process.env.WATCH_CALLSIGNS, []).map((c) =>
     c.toUpperCase(),
@@ -111,6 +112,13 @@ const config = {
     authToken: process.env.TWILIO_AUTH_TOKEN || '',
     from: process.env.TWILIO_FROM || '',
     to: parseStringList(process.env.TWILIO_TO, []),
+  },
+
+  webhookUrl: process.env.WEBHOOK_URL || '',
+
+  location: {
+    lat: parseFloat(process.env.LOCATION_LAT) || null,
+    lon: parseFloat(process.env.LOCATION_LON) || null,
   },
 }
 

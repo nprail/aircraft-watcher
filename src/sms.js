@@ -1,51 +1,6 @@
 'use strict'
 
-const { getCallsign, getHex } = require('./matcher')
-
-/**
- * Formats an aircraft alert into a human-readable SMS message.
- * @param {object} aircraft
- * @returns {string}
- */
-function formatMessage(aircraft) {
-  const hex = getHex(aircraft) || 'N/A'
-  const callsign = getCallsign(aircraft) || 'N/A'
-  const category = (aircraft.category || aircraft.t || aircraft.type || 'N/A')
-    .toString()
-    .trim()
-
-  const lat = aircraft.lat
-  const lon = aircraft.lon
-  const hasCoords = typeof lat === 'number' && typeof lon === 'number'
-  const coordStr = hasCoords ? `${lat.toFixed(4)}, ${lon.toFixed(4)}` : 'N/A'
-  const mapsLink = hasCoords
-    ? `https://www.google.com/maps?q=${lat.toFixed(6)},${lon.toFixed(6)}`
-    : 'N/A'
-
-  const altitude =
-    aircraft.alt_baro !== undefined ? `${aircraft.alt_baro} ft` : 'N/A'
-  const speed =
-    aircraft.gs !== undefined ? `${Math.round(aircraft.gs)} kts` : 'N/A'
-  const heading =
-    aircraft.track !== undefined ? `${Math.round(aircraft.track)}°` : 'N/A'
-
-  const seenRaw =
-    aircraft.seen !== undefined ? aircraft.seen : aircraft.lastSeen
-  const seenStr = seenRaw !== undefined ? `${seenRaw}s ago` : 'N/A'
-
-  const message = [
-    `✈ Aircraft Alert`,
-    `Callsign: ${callsign}  Cat: ${category}`,
-    `Hex: ${hex}`,
-    `Pos: ${coordStr}`,
-    `Map: ${mapsLink}`,
-    `Alt: ${altitude}  Spd: ${speed}  Hdg: ${heading}`,
-    `Last seen: ${seenStr}`,
-  ].join('\n')
-  console.log(message)
-
-  return message
-}
+const { formatMessage } = require('./formatter')
 
 /**
  * Sends an SMS alert to all configured recipients.
@@ -105,4 +60,4 @@ async function sendAlert(aircraft, config, twilioClientOverride) {
   })
 }
 
-module.exports = { formatMessage, sendAlert }
+module.exports = { sendAlert }

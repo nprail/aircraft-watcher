@@ -1,5 +1,8 @@
 'use strict'
 
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
 const { getHex, getCallsign } = require('./matcher')
 
 /**
@@ -70,6 +73,47 @@ class Deduper {
   /** Number of tracked aircraft. */
   get size() {
     return this._lastAlert.size
+  }
+
+  /**
+   * Loads persisted state from a JSON file.
+   * Entries that have already expired are silently dropped.
+   * Safe to call even if the file doesn't exist yet.
+   * @param {string} filePath
+   */
+  async load(filePath) {
+    let raw
+    try {
+      raw = await fs.promises.readFile(filePath, 'utf8')
+    } catch (err) {
+      if (err.code === 'ENOENT') return // first run — nothing to load
+      throw err
+    }
+
+    const data = JSON.parse(raw)
+    const now = Date.now()
+    for (const [key, ts] of Object.entries(data)) {
+      if (typeof ts === 'number' && now - ts < this.cooldownMs) {
+        this._lastAlert.set(key, ts)
+      }
+    }
+  }
+
+  /**
+   * Atomically persists current state to a JSON file (write to tmp + rename).
+   * @param {string} filePath
+   */
+  async save(filePath) {
+    const data = Object.fromEntries(this._lastAlert)
+    const json = JSON.stringify(data)
+    const dir = path.dirname(filePath)
+    const tmp = path.join(
+      dir,
+      `.deduper-tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    )
+    await fs.promises.mkdir(dir, { recursive: true })
+    await fs.promises.writeFile(tmp, json, 'utf8')
+    await fs.promises.rename(tmp, filePath)
   }
 }
 

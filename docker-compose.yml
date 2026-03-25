@@ -8,6 +8,9 @@ services:
       - .env
     environment:
       - NODE_ENV=production
+      - DEDUPER_STATE_FILE=/app/data/.deduper-state.json
+    volumes:
+      - ./data:/app/data
     logging:
       driver: "json-file"
       options:
