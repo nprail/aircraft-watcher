@@ -1,19 +1,17 @@
-'use strict';
+'use strict'
 
-const { getHex, getTail, getCallsign } = require('./matcher');
+const { getHex, getCallsign } = require('./matcher')
 
 /**
  * Builds a stable deduplication key for an aircraft.
  * Prefers hex, then falls back to tail, then callsign.
  */
 function aircraftKey(aircraft) {
-  const hex = getHex(aircraft);
-  if (hex) return `hex:${hex}`;
-  const tail = getTail(aircraft);
-  if (tail) return `tail:${tail}`;
-  const callsign = getCallsign(aircraft);
-  if (callsign) return `callsign:${callsign}`;
-  return null;
+  const hex = getHex(aircraft)
+  if (hex) return `hex:${hex}`
+  const callsign = getCallsign(aircraft)
+  if (callsign) return `callsign:${callsign}`
+  return null
 }
 
 class Deduper {
@@ -21,9 +19,9 @@ class Deduper {
    * @param {number} cooldownSec - seconds before the same aircraft can be alerted again
    */
   constructor(cooldownSec) {
-    this.cooldownMs = (cooldownSec || 1200) * 1000;
+    this.cooldownMs = (cooldownSec || 1200) * 1000
     /** @type {Map<string, number>} key -> last alert timestamp (ms) */
-    this._lastAlert = new Map();
+    this._lastAlert = new Map()
   }
 
   /**
@@ -33,16 +31,16 @@ class Deduper {
    * @param {number} [nowMs] - override current time for testing
    */
   shouldAlert(aircraft, nowMs) {
-    const key = aircraftKey(aircraft);
-    if (!key) return false;
+    const key = aircraftKey(aircraft)
+    if (!key) return false
 
-    const now = nowMs !== undefined ? nowMs : Date.now();
-    const last = this._lastAlert.get(key);
+    const now = nowMs !== undefined ? nowMs : Date.now()
+    const last = this._lastAlert.get(key)
 
-    if (last !== undefined && now - last < this.cooldownMs) return false;
+    if (last !== undefined && now - last < this.cooldownMs) return false
 
-    this._lastAlert.set(key, now);
-    return true;
+    this._lastAlert.set(key, now)
+    return true
   }
 
   /**
@@ -50,9 +48,9 @@ class Deduper {
    * @param {object} aircraft
    */
   getLastAlertTime(aircraft) {
-    const key = aircraftKey(aircraft);
-    if (!key) return null;
-    return this._lastAlert.get(key) || null;
+    const key = aircraftKey(aircraft)
+    if (!key) return null
+    return this._lastAlert.get(key) || null
   }
 
   /**
@@ -61,18 +59,18 @@ class Deduper {
    * @param {number} [nowMs]
    */
   evictExpired(nowMs) {
-    const now = nowMs !== undefined ? nowMs : Date.now();
+    const now = nowMs !== undefined ? nowMs : Date.now()
     for (const [key, ts] of this._lastAlert) {
       if (now - ts >= this.cooldownMs) {
-        this._lastAlert.delete(key);
+        this._lastAlert.delete(key)
       }
     }
   }
 
   /** Number of tracked aircraft. */
   get size() {
-    return this._lastAlert.size;
+    return this._lastAlert.size
   }
 }
 
-module.exports = { Deduper, aircraftKey };
+module.exports = { Deduper, aircraftKey }

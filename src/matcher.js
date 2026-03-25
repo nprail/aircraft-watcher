@@ -1,38 +1,30 @@
-'use strict';
-
-/**
- * Extracts the tail/registration from an aircraft object.
- * Checks r, registration, and tail fields.
- */
-function getTail(aircraft) {
-  return (aircraft.r || aircraft.registration || aircraft.tail || '').trim().toUpperCase();
-}
+'use strict'
 
 /**
  * Extracts the callsign/flight from an aircraft object.
  * Checks flight and callsign fields.
  */
 function getCallsign(aircraft) {
-  return (aircraft.flight || aircraft.callsign || '').trim().toUpperCase();
+  return (aircraft.flight || aircraft.callsign || '').trim().toUpperCase()
 }
 
 /**
  * Extracts the hex/ICAO address from an aircraft object.
  */
 function getHex(aircraft) {
-  return (aircraft.hex || aircraft.icao || '').trim().toLowerCase();
+  return (aircraft.hex || aircraft.icao || '').trim().toLowerCase()
 }
 
 /**
- * Returns true if the aircraft's tail number is in the watch list.
+ * Returns true if the aircraft's callsign is in the watch list.
  * @param {object} aircraft
- * @param {string[]} watchTails - uppercased list of tail numbers to watch
+ * @param {string[]} watchCallsigns - uppercased list of callsigns to watch
  */
-function isTailMatch(aircraft, watchTails) {
-  if (!watchTails || watchTails.length === 0) return false;
-  const tail = getTail(aircraft);
-  if (!tail) return false;
-  return watchTails.includes(tail);
+function isCallsignMatch(aircraft, watchCallsigns) {
+  if (!watchCallsigns || watchCallsigns.length === 0) return false
+  const callsign = getCallsign(aircraft)
+  if (!callsign) return false
+  return watchCallsigns.includes(callsign)
 }
 
 /**
@@ -43,21 +35,21 @@ function isTailMatch(aircraft, watchTails) {
  */
 function isMilitaryMatch(aircraft, milCallsignPrefixes) {
   // Explicit military flag
-  if (aircraft.military === true) return true;
+  if (aircraft.military === true) return true
 
   // Category-based detection: look for "military" in the category string
-  const category = (aircraft.category || '').toLowerCase();
-  if (category.includes('military')) return true;
+  const category = (aircraft.category || '').toLowerCase()
+  if (category.includes('military')) return true
 
   // Callsign prefix heuristics
-  const callsign = getCallsign(aircraft);
+  const callsign = getCallsign(aircraft)
   if (callsign && milCallsignPrefixes && milCallsignPrefixes.length > 0) {
     for (const prefix of milCallsignPrefixes) {
-      if (callsign.startsWith(prefix)) return true;
+      if (callsign.startsWith(prefix)) return true
     }
   }
 
-  return false;
+  return false
 }
 
 /**
@@ -66,9 +58,19 @@ function isMilitaryMatch(aircraft, milCallsignPrefixes) {
  * @param {object} config - parsed config object
  */
 function isInteresting(aircraft, config) {
-  if (isTailMatch(aircraft, config.watchTails)) return true;
-  if (config.enableMilitaryHeuristics && isMilitaryMatch(aircraft, config.milCallsignPrefixes)) return true;
-  return false;
+  if (isCallsignMatch(aircraft, config.watchCallsigns)) return true
+  if (
+    config.enableMilitaryHeuristics &&
+    isMilitaryMatch(aircraft, config.milCallsignPrefixes)
+  )
+    return true
+  return false
 }
 
-module.exports = { getTail, getCallsign, getHex, isTailMatch, isMilitaryMatch, isInteresting };
+module.exports = {
+  getCallsign,
+  getHex,
+  isCallsignMatch,
+  isMilitaryMatch,
+  isInteresting,
+}
