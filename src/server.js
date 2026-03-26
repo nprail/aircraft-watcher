@@ -7,7 +7,7 @@ const logger = require('./logger')
 
 const DIST_DIR = path.join(__dirname, '../web/dist')
 
-function startServer(port) {
+function startServer(port, sightingsStore) {
   const app = express()
 
   app.use(express.json())
@@ -25,6 +25,12 @@ function startServer(port) {
     } catch (err) {
       res.status(400).json({ error: err.message })
     }
+  })
+
+  // GET /api/history — return sighting history, optionally filtered by ?callsign=
+  app.get('/api/history', (req, res) => {
+    const callsign = req.query.callsign || null
+    res.json(sightingsStore.getAll(callsign))
   })
 
   // Serve the built React app

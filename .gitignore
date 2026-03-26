@@ -6,4 +6,4 @@ coverage/
 .DS_Store
 .deduper-state.json
 data/settings.json
-web/dist/
+web/dist/data/.sightings.json

@@ -65,4 +65,4 @@ function formatMessage(aircraft) {
   return message
 }
 
-module.exports = { formatMessage }
+module.exports = { formatMessage, haversineDistanceMiles }
