@@ -192,9 +192,9 @@ describe('isInteresting', () => {
   })
 
   describe('blacklist', () => {
-    test('blacklisted callsign suppresses a watched callsign', () => {
+    test('watched callsign overrides blacklisted callsign', () => {
       const cfg = { ...config, blacklistCallsigns: ['UAL123'] }
-      expect(isInteresting({ flight: 'UAL123' }, cfg)).toBe(false)
+      expect(isInteresting({ flight: 'UAL123' }, cfg)).toBe(true)
     })
     test('blacklisted callsign suppresses a military callsign', () => {
       const cfg = { ...config, blacklistCallsigns: ['RCH001'] }
@@ -208,9 +208,9 @@ describe('isInteresting', () => {
       const cfg = { ...config, blacklistTypes: ['B738'] }
       expect(isInteresting({ flight: 'EAGLE01', t: 'B738' }, cfg)).toBe(false)
     })
-    test('blacklisted type suppresses a watched callsign', () => {
+    test('watched callsign overrides blacklisted type', () => {
       const cfg = { ...config, blacklistTypes: ['B738'] }
-      expect(isInteresting({ flight: 'UAL123', t: 'B738' }, cfg)).toBe(false)
+      expect(isInteresting({ flight: 'UAL123', t: 'B738' }, cfg)).toBe(true)
     })
     test('non-blacklisted type is unaffected', () => {
       const cfg = { ...config, blacklistTypes: ['B738'] }
@@ -219,9 +219,9 @@ describe('isInteresting', () => {
     test('empty blacklists do not suppress anything', () => {
       expect(isInteresting({ flight: 'RCH210' }, config)).toBe(true)
     })
-    test('blacklisted type suppresses a watched type', () => {
+    test('watched type overrides blacklisted type', () => {
       const cfg = { ...config, blacklistTypes: ['C130'] }
-      expect(isInteresting({ t: 'C130', flight: 'ANON1' }, cfg)).toBe(false)
+      expect(isInteresting({ t: 'C130', flight: 'ANON1' }, cfg)).toBe(true)
     })
     test('type matching is case-insensitive', () => {
       const cfg = { ...config, blacklistTypes: ['B738'] }

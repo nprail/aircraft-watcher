@@ -84,7 +84,6 @@ const CIVILIAN_TYPE_CODES = new Set([
   'PA47',
   // Beechcraft (non-King Air: King Air / C-12 variants are military)
   'BE17',
-  'BE18',
   'BE23',
   'BE24',
   'BE33',
@@ -361,7 +360,11 @@ function isTypeMatch(aircraft, watchTypes) {
  * @param {object} config - parsed config object
  */
 function isInteresting(aircraft, config) {
-  // Blacklist checks — suppress regardless of any watch/military rules
+  // Watch checks — explicit watches override all ignores
+  if (isCallsignMatch(aircraft, config.watchCallsigns)) return true
+  if (isTypeMatch(aircraft, config.watchTypes)) return true
+
+  // Blacklist checks — suppress military/other heuristic matches
   const callsign = getCallsign(aircraft)
   if (
     callsign &&
@@ -380,8 +383,6 @@ function isInteresting(aircraft, config) {
   )
     return false
 
-  if (isCallsignMatch(aircraft, config.watchCallsigns)) return true
-  if (isTypeMatch(aircraft, config.watchTypes)) return true
   if (
     config.enableMilitaryHeuristics &&
     isMilitaryMatch(aircraft, config.milCallsignPrefixes)
