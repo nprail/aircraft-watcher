@@ -78,6 +78,7 @@ const DEFAULTS = {
   maxAircraftPerPoll: 500,
   fetchTimeoutMs: 15000,
   watchCallsigns: [],
+  watchTypes: [],
   blacklistCallsigns: [],
   blacklistTypes: [],
   enableMilitaryHeuristics: true,

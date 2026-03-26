@@ -510,6 +510,19 @@ export default function App() {
           />
         </Card>
 
+        {/* Watch Aircraft Types */}
+        <Card
+          title="Watch Aircraft Types"
+          description="Alert on any aircraft matching one of these ICAO type designators, regardless of callsign."
+        >
+          <TagInput
+            items={settings.watchTypes ?? []}
+            onChange={(v) => update('watchTypes', v)}
+            placeholder="e.g. C130 — press Enter to add"
+            transform={(s) => s.toUpperCase()}
+          />
+        </Card>
+
         {/* Blacklist */}
         <Card
           title="Blacklist"
