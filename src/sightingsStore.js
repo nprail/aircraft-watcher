@@ -21,14 +21,16 @@ class SightingsStore {
   /**
    * Records a new sighting.
    * @param {object} aircraft - enriched aircraft object from the poll loop
+   * @param {number|null} [distanceMi] - distance from configured location in miles, or null
    */
-  add(aircraft) {
+  add(aircraft, distanceMi = null) {
     const entry = {
       timestamp: Date.now(),
       callsign: (aircraft.flight || aircraft.callsign || '').trim().toUpperCase() || null,
       hex: (aircraft.hex || aircraft.icao || '').trim().toLowerCase() || null,
       registration: (aircraft.r || '').trim() || null,
       type: (aircraft.t || aircraft.type || '').trim().toUpperCase() || null,
+      distanceMi: distanceMi !== null ? Math.round(distanceMi) : null,
       altitude: aircraft.alt_baro !== undefined ? aircraft.alt_baro : null,
       speed: aircraft.gs !== undefined ? Math.round(aircraft.gs) : null,
       heading: aircraft.track !== undefined ? Math.round(aircraft.track) : null,

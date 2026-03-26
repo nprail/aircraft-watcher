@@ -6,7 +6,7 @@ const config = require('./config')
 const logger = require('./logger')
 const { isInteresting, isCallsignMatch } = require('./matcher')
 const { Deduper } = require('./deduper')
-const { formatMessage } = require('./formatter')
+const { formatMessage, haversineDistanceMiles } = require('./formatter')
 const { notifyWebhook } = require('./webhook')
 const aircraftDb = require('./aircraftDb')
 const { startServer } = require('./server')
@@ -85,7 +85,15 @@ async function processPoll() {
 
       // Record sighting for watched callsigns
       if (isCallsignMatch(ac, config.watchCallsigns)) {
-        sightingsStore.add(ac)
+        const { lat: cfgLat, lon: cfgLon } = config.location
+        const distanceMi =
+          cfgLat !== null &&
+          cfgLon !== null &&
+          ac.lat !== undefined &&
+          ac.lon !== undefined
+            ? haversineDistanceMiles(cfgLat, cfgLon, ac.lat, ac.lon)
+            : null
+        sightingsStore.add(ac, distanceMi)
         newSightings = true
         logger.info('Watched callsign sighted', {
           callsign: ac.flight || ac.callsign,

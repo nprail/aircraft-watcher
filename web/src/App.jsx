@@ -246,6 +246,7 @@ function SightingHistory() {
               <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wide">
                 <th className="px-3 py-2 whitespace-nowrap">Time</th>
                 <th className="px-3 py-2 whitespace-nowrap">Callsign</th>
+                <th className="px-3 py-2 whitespace-nowrap">Distance</th>
                 <th className="px-3 py-2 whitespace-nowrap">Reg</th>
                 <th className="px-3 py-2 whitespace-nowrap">Type</th>
                 <th className="px-3 py-2 whitespace-nowrap">Alt (ft)</th>
@@ -264,6 +265,9 @@ function SightingHistory() {
                   </td>
                   <td className="px-3 py-2 text-blue-400 font-semibold whitespace-nowrap">
                     {s.callsign ?? '—'}
+                  </td>
+                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
+                    {s.distanceMi !== null && s.distanceMi !== undefined ? `${s.distanceMi} mi` : '—'}
                   </td>
                   <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
                     {s.registration ?? '—'}

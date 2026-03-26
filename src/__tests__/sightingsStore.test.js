@@ -26,19 +26,26 @@ describe('SightingsStore', () => {
 
   test('add records a sighting with normalised fields', () => {
     const s = new SightingsStore()
-    s.add(SAMPLE_AC)
+    s.add(SAMPLE_AC, 42.7)
     expect(s.size).toBe(1)
     const [entry] = s.getAll()
     expect(entry.callsign).toBe('UAL123')
     expect(entry.hex).toBe('a1b2c3')
     expect(entry.registration).toBe('N12345')
     expect(entry.type).toBe('B738')
+    expect(entry.distanceMi).toBe(43) // rounded
     expect(entry.altitude).toBe(8500)
     expect(entry.speed).toBe(320)   // rounded
     expect(entry.heading).toBe(270) // rounded
     expect(entry.lat).toBe(37.7749)
     expect(entry.lon).toBe(-122.4194)
     expect(typeof entry.timestamp).toBe('number')
+  })
+
+  test('add stores null distanceMi when not provided', () => {
+    const s = new SightingsStore()
+    s.add(SAMPLE_AC)
+    expect(s.getAll()[0].distanceMi).toBeNull()
   })
 
   test('add stores newest entry first', () => {
@@ -58,6 +65,7 @@ describe('SightingsStore', () => {
     expect(entry.hex).toBeNull()
     expect(entry.registration).toBeNull()
     expect(entry.type).toBeNull()
+    expect(entry.distanceMi).toBeNull()
     expect(entry.altitude).toBeNull()
     expect(entry.speed).toBeNull()
     expect(entry.heading).toBeNull()

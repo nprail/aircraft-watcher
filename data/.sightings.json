@@ -1,6 +1,6 @@
 [
-  {"timestamp":1711449623000,"callsign":"UAL123","hex":"a1b2c3","registration":"N12345","type":"B738","altitude":8500,"speed":320,"heading":270,"lat":37.7749,"lon":-122.4194},
-  {"timestamp":1711445023000,"callsign":"DAL456","hex":"a4b5c6","registration":"N67890","type":"B752","altitude":35000,"speed":450,"heading":90,"lat":39.0458,"lon":-76.6413},
-  {"timestamp":1711441423000,"callsign":"UAL123","hex":"a1b2c3","registration":"N12345","type":"B738","altitude":12000,"speed":350,"heading":180,"lat":36.0,"lon":-120.0},
-  {"timestamp":1711437823000,"callsign":"AAL789","hex":"a7b8c9","registration":"N99999","type":"A321","altitude":29000,"speed":440,"heading":45,"lat":40.6413,"lon":-73.7781}
+  {"timestamp":1711449623000,"callsign":"UAL123","hex":"a1b2c3","registration":"N12345","type":"B738","distanceMi":42,"altitude":8500,"speed":320,"heading":270,"lat":37.7749,"lon":-122.4194},
+  {"timestamp":1711445023000,"callsign":"DAL456","hex":"a4b5c6","registration":"N67890","type":"B752","distanceMi":118,"altitude":35000,"speed":450,"heading":90,"lat":39.0458,"lon":-76.6413},
+  {"timestamp":1711441423000,"callsign":"UAL123","hex":"a1b2c3","registration":"N12345","type":"B738","distanceMi":null,"altitude":12000,"speed":350,"heading":180,"lat":36.0,"lon":-120.0},
+  {"timestamp":1711437823000,"callsign":"AAL789","hex":"a7b8c9","registration":"N99999","type":"A321","distanceMi":73,"altitude":29000,"speed":440,"heading":45,"lat":40.6413,"lon":-73.7781}
 ]
