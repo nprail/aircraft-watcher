@@ -176,6 +176,122 @@ function UrlList({ items, onChange }) {
 
 // ─── App ──────────────────────────────────────────────────────────────────
 
+function SightingHistory() {
+  const [sightings, setSightings] = useState(null)
+  const [filter, setFilter] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(() => {
+    const url = filter.trim()
+      ? `/api/history?callsign=${encodeURIComponent(filter.trim().toUpperCase())}`
+      : '/api/history'
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => {
+        setSightings(data)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [filter])
+
+  useEffect(() => {
+    load()
+    const interval = setInterval(load, 30_000)
+    return () => clearInterval(interval)
+  }, [load])
+
+  const fmt = (ts) => {
+    const d = new Date(ts)
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  }
+
+  return (
+    <Card
+      title="Sighting History"
+      description="Each entry records when a watched callsign was detected. Refreshes every 30 s."
+    >
+      <div className="flex gap-2 mb-2">
+        <Input
+          type="text"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by callsign…"
+          className="max-w-xs"
+        />
+        {filter && (
+          <button
+            type="button"
+            onClick={() => setFilter('')}
+            className="text-sm text-gray-400 hover:text-gray-200 transition-colors px-2"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-gray-500 italic">Loading…</p>
+      ) : !sightings || sightings.length === 0 ? (
+        <p className="text-sm text-gray-600 italic">No sightings recorded yet.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-gray-800">
+          <table className="w-full text-sm text-left">
+            <thead>
+              <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wide">
+                <th className="px-3 py-2 whitespace-nowrap">Time</th>
+                <th className="px-3 py-2 whitespace-nowrap">Callsign</th>
+                <th className="px-3 py-2 whitespace-nowrap">Reg</th>
+                <th className="px-3 py-2 whitespace-nowrap">Type</th>
+                <th className="px-3 py-2 whitespace-nowrap">Alt (ft)</th>
+                <th className="px-3 py-2 whitespace-nowrap">Spd (kts)</th>
+                <th className="px-3 py-2 whitespace-nowrap">Hdg</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sightings.map((s, i) => (
+                <tr
+                  key={i}
+                  className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/40 transition-colors"
+                >
+                  <td className="px-3 py-2 text-gray-400 whitespace-nowrap font-mono text-xs">
+                    {fmt(s.timestamp)}
+                  </td>
+                  <td className="px-3 py-2 text-blue-400 font-semibold whitespace-nowrap">
+                    {s.callsign ?? '—'}
+                  </td>
+                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
+                    {s.registration ?? '—'}
+                  </td>
+                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
+                    {s.type ?? '—'}
+                  </td>
+                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
+                    {s.altitude !== null ? s.altitude.toLocaleString() : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
+                    {s.speed !== null ? s.speed : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
+                    {s.heading !== null ? `${s.heading}°` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// ─── App ──────────────────────────────────────────────────────────────────
+
 export default function App() {
   const [settings, setSettings] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -264,6 +380,9 @@ export default function App() {
             Configure monitoring settings. Changes take effect on the next poll.
           </p>
         </div>
+
+        {/* Sighting History */}
+        <SightingHistory />
 
         {/* Feed Source */}
         <Card

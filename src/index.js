@@ -4,15 +4,17 @@ require('dotenv').config()
 
 const config = require('./config')
 const logger = require('./logger')
-const { isInteresting } = require('./matcher')
+const { isInteresting, isCallsignMatch } = require('./matcher')
 const { Deduper } = require('./deduper')
 const { formatMessage } = require('./formatter')
 const { notifyWebhook } = require('./webhook')
 const aircraftDb = require('./aircraftDb')
 const { startServer } = require('./server')
+const { SightingsStore } = require('./sightingsStore')
 
 const WEB_PORT = parseInt(process.env.WEB_PORT, 10) || 3000
-startServer(WEB_PORT)
+const sightingsStore = new SightingsStore()
+startServer(WEB_PORT, sightingsStore)
 
 const deduper = new Deduper(config.alertCooldownSec)
 let running = true
@@ -57,6 +59,7 @@ async function processPoll() {
   )
 
   const alreadyAlertedThisCycle = new Set()
+  let newSightings = false
 
   for (const ac of aircraft) {
     try {
@@ -79,6 +82,16 @@ async function processPoll() {
       if (!deduper.shouldAlert(ac)) continue
 
       alreadyAlertedThisCycle.add(cycleKey)
+
+      // Record sighting for watched callsigns
+      if (isCallsignMatch(ac, config.watchCallsigns)) {
+        sightingsStore.add(ac)
+        newSightings = true
+        logger.info('Watched callsign sighted', {
+          callsign: ac.flight || ac.callsign,
+          hex: ac.hex,
+        })
+      }
 
       await deduper
         .save(config.deduperStateFile)
@@ -110,6 +123,15 @@ async function processPoll() {
         aircraft: ac,
       })
     }
+  }
+
+  // Persist sightings once per cycle if any new ones were recorded
+  if (newSightings) {
+    await sightingsStore
+      .save(config.sightingsFile)
+      .catch((err) =>
+        logger.warn('Failed to save sightings', { error: err.message }),
+      )
   }
 }
 
@@ -157,6 +179,10 @@ aircraftDb
   .then(() => deduper.load(config.deduperStateFile))
   .catch((err) =>
     logger.warn('Failed to load deduper state', { error: err.message }),
+  )
+  .then(() => sightingsStore.load(config.sightingsFile))
+  .catch((err) =>
+    logger.warn('Failed to load sightings', { error: err.message }),
   )
   .then(() => pollLoop())
   .catch((err) => {

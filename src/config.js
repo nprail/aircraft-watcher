@@ -13,6 +13,9 @@ const config = new Proxy(
       if (key === 'deduperStateFile') {
         return process.env.DEDUPER_STATE_FILE || 'data/.deduper-state.json'
       }
+      if (key === 'sightingsFile') {
+        return process.env.SIGHTINGS_FILE || 'data/.sightings.json'
+      }
       return settingsStore.get()[key]
     },
   },
