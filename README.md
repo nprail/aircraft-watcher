@@ -33,7 +33,7 @@ npm install
 
 `data/settings.json` is created automatically on first run with built-in defaults. Edit it directly or use the web UI at `http://localhost:3000`.
 
-Optionally create a `.env` file to override `WEB_PORT`, `DEDUPER_STATE_FILE`, or `SETTINGS_FILE`.
+Optionally create a `.env` file to override `WEB_PORT` or `DATA_FOLDER`.
 
 ### 3. Run
 
@@ -71,8 +71,7 @@ All application settings are managed via `data/settings.json` and can be updated
 | Variable             | Default                    | Description                            |
 | -------------------- | -------------------------- | -------------------------------------- |
 | `WEB_PORT`           | `3000`                     | Port for the web UI / API server       |
-| `DEDUPER_STATE_FILE` | `data/.deduper-state.json` | Path for persisting cooldown state     |
-| `SETTINGS_FILE`      | `data/settings.json`       | Path to the settings file              |
+| `DATA_FOLDER`        | `data`                     | Directory for all persisted state files |
 
 ## Alert Format
 

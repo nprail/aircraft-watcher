@@ -3,8 +3,9 @@
 const fs = require('fs')
 const path = require('path')
 
-const SETTINGS_FILE =
-  process.env.SETTINGS_FILE ?? path.join(__dirname, '../data/settings.json')
+const DATA_FOLDER =
+  process.env.DATA_FOLDER ?? path.join(__dirname, '../data')
+const SETTINGS_FILE = path.join(DATA_FOLDER, 'settings.json')
 
 const DEFAULT_MIL_PREFIXES = [
   'RCH',

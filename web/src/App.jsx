@@ -180,6 +180,7 @@ function SightingHistory() {
   const [sightings, setSightings] = useState(null)
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   const load = useCallback(() => {
     const url = filter.trim()
@@ -189,9 +190,13 @@ function SightingHistory() {
       .then((r) => r.json())
       .then((data) => {
         setSightings(data)
+        setError(false)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch(() => {
+        setError(true)
+        setLoading(false)
+      })
   }, [filter])
 
   useEffect(() => {
@@ -237,6 +242,8 @@ function SightingHistory() {
 
       {loading ? (
         <p className="text-sm text-gray-500 italic">Loading…</p>
+      ) : error ? (
+        <p className="text-sm text-red-400 italic">Failed to load sighting history. Please try again.</p>
       ) : !sightings || sightings.length === 0 ? (
         <p className="text-sm text-gray-600 italic">No sightings recorded yet.</p>
       ) : (

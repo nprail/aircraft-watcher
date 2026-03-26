@@ -2,6 +2,7 @@
 
 require('dotenv').config()
 
+const path = require('path')
 const settingsStore = require('./settingsStore')
 
 // Proxy over the live settings store so all reads reflect the current value.
@@ -11,10 +12,10 @@ const config = new Proxy(
   {
     get(_, key) {
       if (key === 'deduperStateFile') {
-        return process.env.DEDUPER_STATE_FILE || 'data/.deduper-state.json'
+        return path.join(process.env.DATA_FOLDER || 'data', '.deduper-state.json')
       }
       if (key === 'sightingsFile') {
-        return process.env.SIGHTINGS_FILE || 'data/.sightings.json'
+        return path.join(process.env.DATA_FOLDER || 'data', '.sightings.json')
       }
       return settingsStore.get()[key]
     },

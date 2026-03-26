@@ -104,6 +104,7 @@ const CIVILIAN_TYPE_CODES = new Set([
   'BE80',
   'BE95',
   'BE99',
+  'PRM1',
   // Learjet
   'LJ23',
   'LJ24',
@@ -116,9 +117,12 @@ const CIVILIAN_TYPE_CODES = new Set([
   'LJ45',
   'LJ55',
   'LJ60',
-  // Embraer Phenom
+  'LJ70',
+  'LJ75',
+  // Embraer Phenom / Legacy / Praetor
   'E50P',
   'E55P',
+  'E45X',
   // Daher TBM
   'TBM7',
   'TBM8',
@@ -126,6 +130,7 @@ const CIVILIAN_TYPE_CODES = new Set([
   // Pilatus
   'PC6',
   'PC12',
+  'PC24',
   // Diamond
   'DA20',
   'DA40',
@@ -139,6 +144,7 @@ const CIVILIAN_TYPE_CODES = new Set([
   'M20P',
   'M20T',
   // HondaJet
+  'HDJT',
   'HA4T',
   // Dassault Falcon
   'FA10',
@@ -148,6 +154,7 @@ const CIVILIAN_TYPE_CODES = new Set([
   'F2TH',
   'FA7X',
   'F8EX',
+  'F6X',
   // Gulfstream / Gulfstream American / Grumman American
   'GLF2',
   'GLF3',
