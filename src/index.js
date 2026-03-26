@@ -4,7 +4,7 @@ require('dotenv').config()
 
 const config = require('./config')
 const logger = require('./logger')
-const { isInteresting, isCallsignMatch } = require('./matcher')
+const { isInteresting, isCallsignMatch, isTypeMatch } = require('./matcher')
 const { Deduper } = require('./deduper')
 const { formatMessage, haversineDistanceMiles } = require('./formatter')
 const { notifyWebhook } = require('./webhook')
@@ -83,8 +83,11 @@ async function processPoll() {
 
       alreadyAlertedThisCycle.add(cycleKey)
 
-      // Record sighting for watched callsigns
-      if (isCallsignMatch(ac, config.watchCallsigns)) {
+      // Record sighting for watched callsigns and watched types
+      if (
+        isCallsignMatch(ac, config.watchCallsigns) ||
+        isTypeMatch(ac, config.watchTypes)
+      ) {
         const { lat: cfgLat, lon: cfgLon } = config.location
         const distanceMi =
           cfgLat !== null &&
@@ -95,7 +98,7 @@ async function processPoll() {
             : null
         sightingsStore.add(ac, distanceMi)
         newSightings = true
-        logger.info('Watched callsign sighted', {
+        logger.info('Watched aircraft sighted', {
           callsign: ac.flight || ac.callsign,
           hex: ac.hex,
         })
@@ -179,6 +182,7 @@ logger.info('Aircraft watcher starting', {
   pollIntervalSec: config.pollIntervalSec,
   alertCooldownSec: config.alertCooldownSec,
   watchCallsigns: config.watchCallsigns,
+  watchTypes: config.watchTypes,
   enableMilitaryHeuristics: config.enableMilitaryHeuristics,
 })
 

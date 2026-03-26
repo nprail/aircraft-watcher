@@ -338,7 +338,18 @@ function isMilitaryMatch(aircraft, milCallsignPrefixes) {
 }
 
 /**
- * Returns true if the aircraft should trigger an alert.
+ * Returns true if the aircraft's ICAO type code is in the watch list.
+ * @param {object} aircraft
+ * @param {string[]} watchTypes - uppercased list of ICAO type codes to watch
+ */
+function isTypeMatch(aircraft, watchTypes) {
+  if (!watchTypes || watchTypes.length === 0) return false
+  const typeCode = (aircraft.t || aircraft.type || '').trim().toUpperCase()
+  if (!typeCode) return false
+  return watchTypes.includes(typeCode)
+}
+
+/**
  * @param {object} aircraft
  * @param {object} config - parsed config object
  */
@@ -363,6 +374,7 @@ function isInteresting(aircraft, config) {
     return false
 
   if (isCallsignMatch(aircraft, config.watchCallsigns)) return true
+  if (isTypeMatch(aircraft, config.watchTypes)) return true
   if (
     config.enableMilitaryHeuristics &&
     isMilitaryMatch(aircraft, config.milCallsignPrefixes)
@@ -376,6 +388,7 @@ module.exports = {
   getCallsign,
   getHex,
   isCallsignMatch,
+  isTypeMatch,
   isMilitaryMatch,
   isInteresting,
 }

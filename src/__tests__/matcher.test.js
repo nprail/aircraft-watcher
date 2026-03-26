@@ -2,6 +2,7 @@
 
 const {
   isCallsignMatch,
+  isTypeMatch,
   isMilitaryMatch,
   isInteresting,
   getCallsign,
@@ -56,6 +57,35 @@ describe('isCallsignMatch', () => {
   })
   test('returns false when watchCallsigns is null', () => {
     expect(isCallsignMatch({ flight: 'RCH210' }, null)).toBe(false)
+  })
+})
+
+describe('isTypeMatch', () => {
+  const watchTypes = ['C130', 'C17', 'B52']
+
+  test('matches aircraft type in watch list (t field)', () => {
+    expect(isTypeMatch({ t: 'C130' }, watchTypes)).toBe(true)
+  })
+  test('matches aircraft type in watch list (type field)', () => {
+    expect(isTypeMatch({ type: 'C17' }, watchTypes)).toBe(true)
+  })
+  test('prefers t field over type field', () => {
+    expect(isTypeMatch({ t: 'C130', type: 'OTHER' }, watchTypes)).toBe(true)
+  })
+  test('matching is case-insensitive', () => {
+    expect(isTypeMatch({ t: 'c130' }, watchTypes)).toBe(true)
+  })
+  test('does not match type not in watch list', () => {
+    expect(isTypeMatch({ t: 'B738' }, watchTypes)).toBe(false)
+  })
+  test('returns false when watch list is empty', () => {
+    expect(isTypeMatch({ t: 'C130' }, [])).toBe(false)
+  })
+  test('returns false when watch list is null', () => {
+    expect(isTypeMatch({ t: 'C130' }, null)).toBe(false)
+  })
+  test('returns false when aircraft has no type', () => {
+    expect(isTypeMatch({}, watchTypes)).toBe(false)
   })
 })
 
@@ -128,6 +158,7 @@ describe('isMilitaryMatch', () => {
 describe('isInteresting', () => {
   const config = {
     watchCallsigns: ['RCH210', 'UAL123'],
+    watchTypes: ['C130', 'C17'],
     enableMilitaryHeuristics: true,
     milCallsignPrefixes: ['RCH', 'EAGLE'],
     blacklistCallsigns: [],
@@ -136,6 +167,15 @@ describe('isInteresting', () => {
 
   test('returns true for watched callsign', () => {
     expect(isInteresting({ flight: 'rch210' }, config)).toBe(true)
+  })
+  test('returns true for watched aircraft type', () => {
+    expect(isInteresting({ t: 'C130', flight: 'CIVIL1' }, config)).toBe(true)
+  })
+  test('returns true for watched aircraft type (case-insensitive)', () => {
+    expect(isInteresting({ t: 'c17', flight: 'ANON99' }, config)).toBe(true)
+  })
+  test('returns false for unwatched type with no other match', () => {
+    expect(isInteresting({ t: 'B738', flight: 'AAL500' }, config)).toBe(false)
   })
   test('returns true for military callsign when heuristics enabled', () => {
     expect(isInteresting({ flight: 'RCH001' }, config)).toBe(true)
@@ -178,6 +218,10 @@ describe('isInteresting', () => {
     })
     test('empty blacklists do not suppress anything', () => {
       expect(isInteresting({ flight: 'RCH210' }, config)).toBe(true)
+    })
+    test('blacklisted type suppresses a watched type', () => {
+      const cfg = { ...config, blacklistTypes: ['C130'] }
+      expect(isInteresting({ t: 'C130', flight: 'ANON1' }, cfg)).toBe(false)
     })
     test('type matching is case-insensitive', () => {
       const cfg = { ...config, blacklistTypes: ['B738'] }
