@@ -80,6 +80,30 @@ async function processPoll() {
         ac.hex || ac.r || ac.flight || ac.callsign || JSON.stringify(ac)
       if (alreadyAlertedThisCycle.has(cycleKey)) continue
 
+      // Check distance threshold before stamping the deduper — an aircraft that
+      // is currently outside the threshold should not consume its cooldown slot
+      // so that a notification fires correctly once it enters the threshold.
+      const threshold = config.notifyDistanceThresholdMi
+      if (threshold !== null && threshold !== undefined) {
+        const { lat: cfgLat, lon: cfgLon } = config.location
+        if (
+          cfgLat !== null &&
+          cfgLon !== null &&
+          ac.lat !== undefined &&
+          ac.lon !== undefined
+        ) {
+          const distanceMi = haversineDistanceMiles(cfgLat, cfgLon, ac.lat, ac.lon)
+          if (distanceMi > threshold) {
+            logger.debug('Aircraft outside distance threshold, skipping notification', {
+              hex: ac.hex,
+              distanceMi: distanceMi.toFixed(1),
+              thresholdMi: threshold,
+            })
+            continue
+          }
+        }
+      }
+
       if (!deduper.shouldAlert(ac)) continue
 
       alreadyAlertedThisCycle.add(cycleKey)
@@ -117,28 +141,6 @@ async function processPoll() {
         lat: ac.lat,
         lon: ac.lon,
       })
-
-      // Check distance threshold before notifying
-      const threshold = config.notifyDistanceThresholdMi
-      if (threshold !== null && threshold !== undefined) {
-        const { lat: cfgLat, lon: cfgLon } = config.location
-        if (
-          cfgLat !== null &&
-          cfgLon !== null &&
-          ac.lat !== undefined &&
-          ac.lon !== undefined
-        ) {
-          const distanceMi = haversineDistanceMiles(cfgLat, cfgLon, ac.lat, ac.lon)
-          if (distanceMi > threshold) {
-            logger.debug('Aircraft outside distance threshold, skipping notification', {
-              hex: ac.hex,
-              distanceMi: distanceMi.toFixed(1),
-              thresholdMi: threshold,
-            })
-            continue
-          }
-        }
-      }
 
       const callsign = ac.flight || ac.callsign || ac.hex || 'Unknown'
       const alertPayload = {
