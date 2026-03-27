@@ -80,6 +80,28 @@ async function processPoll() {
         ac.hex || ac.r || ac.flight || ac.callsign || JSON.stringify(ac)
       if (alreadyAlertedThisCycle.has(cycleKey)) continue
 
+      // Record sighting for any interesting watched aircraft, regardless of
+      // distance threshold or notification cooldown.
+      if (
+        isCallsignMatch(ac, config.watchCallsigns) ||
+        isTypeMatch(ac, config.watchTypes)
+      ) {
+        const { lat: cfgLat, lon: cfgLon } = config.location
+        const distanceMi =
+          cfgLat !== null &&
+          cfgLon !== null &&
+          ac.lat !== undefined &&
+          ac.lon !== undefined
+            ? haversineDistanceMiles(cfgLat, cfgLon, ac.lat, ac.lon)
+            : null
+        sightingsStore.record(ac, distanceMi, config.alertCooldownSec * 1000)
+        newSightings = true
+        logger.info('Watched aircraft sighted', {
+          callsign: ac.flight || ac.callsign,
+          hex: ac.hex,
+        })
+      }
+
       // Check distance threshold before stamping the deduper — an aircraft that
       // is currently outside the threshold should not consume its cooldown slot
       // so that a notification fires correctly once it enters the threshold.
@@ -107,27 +129,6 @@ async function processPoll() {
       if (!deduper.shouldAlert(ac)) continue
 
       alreadyAlertedThisCycle.add(cycleKey)
-
-      // Record sighting for watched callsigns and watched types
-      if (
-        isCallsignMatch(ac, config.watchCallsigns) ||
-        isTypeMatch(ac, config.watchTypes)
-      ) {
-        const { lat: cfgLat, lon: cfgLon } = config.location
-        const distanceMi =
-          cfgLat !== null &&
-          cfgLon !== null &&
-          ac.lat !== undefined &&
-          ac.lon !== undefined
-            ? haversineDistanceMiles(cfgLat, cfgLon, ac.lat, ac.lon)
-            : null
-        sightingsStore.add(ac, distanceMi)
-        newSightings = true
-        logger.info('Watched aircraft sighted', {
-          callsign: ac.flight || ac.callsign,
-          hex: ac.hex,
-        })
-      }
 
       await deduper
         .save(config.deduperStateFile)

@@ -26,7 +26,9 @@ class SightingsStore {
   add(aircraft, distanceMi = null) {
     const entry = {
       timestamp: Date.now(),
-      callsign: (aircraft.flight || aircraft.callsign || '').trim().toUpperCase() || null,
+      callsign:
+        (aircraft.flight || aircraft.callsign || '').trim().toUpperCase() ||
+        null,
       hex: (aircraft.hex || aircraft.icao || '').trim().toLowerCase() || null,
       registration: (aircraft.r || '').trim() || null,
       type: (aircraft.t || aircraft.type || '').trim().toUpperCase() || null,
@@ -43,6 +45,51 @@ class SightingsStore {
     // Cap to prevent unbounded growth
     if (this._sightings.length > MAX_SIGHTINGS) {
       this._sightings.length = MAX_SIGHTINGS
+    }
+  }
+
+  /**
+   * Creates a new sighting or updates the most recent one if the same aircraft
+   * was already seen within `cooldownMs` milliseconds.
+   *
+   * Use this instead of `add()` to avoid flooding the list with duplicate
+   * entries during a continuous flyover. Fields that reflect current position
+   * (lat, lon, altitude, speed, heading, distanceMi) are refreshed; the
+   * original `timestamp` is preserved and `lastUpdated` is set.
+   *
+   * @param {object} aircraft
+   * @param {number|null} distanceMi
+   * @param {number} cooldownMs
+   */
+  record(aircraft, distanceMi, cooldownMs) {
+    const hex =
+      (aircraft.hex || aircraft.icao || '').trim().toLowerCase() || null
+    const callsign =
+      (aircraft.flight || aircraft.callsign || '').trim().toUpperCase() || null
+
+    const now = Date.now()
+    const existing = this._sightings.find((s) => {
+      if (hex && s.hex === hex) return true
+      if (!hex && callsign && s.callsign === callsign) return true
+      return false
+    })
+
+    if (existing && now - existing.timestamp < cooldownMs) {
+      existing.lastUpdated = now
+      existing.lat = aircraft.lat !== undefined ? aircraft.lat : existing.lat
+      existing.lon = aircraft.lon !== undefined ? aircraft.lon : existing.lon
+      existing.altitude =
+        aircraft.alt_baro !== undefined ? aircraft.alt_baro : existing.altitude
+      existing.speed =
+        aircraft.gs !== undefined ? Math.round(aircraft.gs) : existing.speed
+      existing.heading =
+        aircraft.track !== undefined
+          ? Math.round(aircraft.track)
+          : existing.heading
+      existing.distanceMi =
+        distanceMi !== null ? Math.round(distanceMi) : existing.distanceMi
+    } else {
+      this.add(aircraft, distanceMi)
     }
   }
 
