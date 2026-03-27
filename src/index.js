@@ -8,6 +8,7 @@ const { isInteresting, isCallsignMatch, isTypeMatch } = require('./matcher')
 const { Deduper } = require('./deduper')
 const { formatMessage, haversineDistanceMiles } = require('./formatter')
 const { notifyWebhook } = require('./webhook')
+const { notifyNtfy } = require('./ntfy')
 const aircraftDb = require('./aircraftDb')
 const { startServer } = require('./server')
 const { SightingsStore } = require('./sightingsStore')
@@ -117,16 +118,25 @@ async function processPoll() {
         lon: ac.lon,
       })
 
+      const callsign = ac.flight || ac.callsign || ac.hex || 'Unknown'
+      const alertPayload = {
+        title: `Aircraft Alert: ${callsign}`,
+        message: formatMessage(ac),
+        url: `${config.tar1090Url.replace(/\/$/, '')}/?icao=${ac.hex || ''}`,
+      }
+
       try {
-        const callsign = ac.flight || ac.callsign || ac.hex || 'Unknown'
-        await notifyWebhook({
-          title: `Aircraft Alert: ${callsign}`,
-          message: formatMessage(ac),
-          url: `${config.tar1090Url.replace(/\/$/, '')}/?icao=${ac.hex || ''}`,
-        })
+        await notifyWebhook(alertPayload)
         logger.info('Webhook notified')
       } catch (webhookErr) {
         logger.error('Webhook error', { error: webhookErr.message })
+      }
+
+      try {
+        await notifyNtfy(alertPayload)
+        logger.info('ntfy notified')
+      } catch (ntfyErr) {
+        logger.error('ntfy error', { error: ntfyErr.message })
       }
     } catch (acErr) {
       logger.error('Error processing aircraft', {

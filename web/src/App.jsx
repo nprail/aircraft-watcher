@@ -336,6 +336,13 @@ export default function App() {
     }))
   }, [])
 
+  const updateNtfy = useCallback((key, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      ntfy: { ...prev.ntfy, [key]: value },
+    }))
+  }, [])
+
   const handleSave = async () => {
     setSaving(true)
     setSaveStatus(null)
@@ -596,6 +603,54 @@ export default function App() {
             items={settings.webhookUrls}
             onChange={(v) => update('webhookUrls', v)}
           />
+        </Card>
+
+        {/* ntfy.sh */}
+        <Card
+          title="ntfy.sh Notifications"
+          description="Push alerts to a ntfy topic. Leave Topic blank to disable."
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Server URL" hint="Default: https://ntfy.sh">
+              <Input
+                type="url"
+                value={settings.ntfy?.url ?? 'https://ntfy.sh'}
+                onChange={(e) => updateNtfy('url', e.target.value)}
+                placeholder="https://ntfy.sh"
+              />
+            </Field>
+            <Field label="Topic" hint="Leave blank to disable ntfy notifications.">
+              <Input
+                type="text"
+                value={settings.ntfy?.topic ?? ''}
+                onChange={(e) => updateNtfy('topic', e.target.value)}
+                placeholder="e.g. aircraft-alerts"
+              />
+            </Field>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Access Token" hint="Optional — for protected topics.">
+              <Input
+                type="password"
+                value={settings.ntfy?.token ?? ''}
+                onChange={(e) => updateNtfy('token', e.target.value)}
+                placeholder="tk_…"
+                autoComplete="off"
+              />
+            </Field>
+            <Field label="Priority" hint="1 (min) – 5 (max). Default: 3.">
+              <Input
+                type="number"
+                min={1}
+                max={5}
+                value={settings.ntfy?.priority ?? 3}
+                onChange={(e) =>
+                  updateNtfy('priority', parseInt(e.target.value) || 3)
+                }
+                className="max-w-xs"
+              />
+            </Field>
+          </div>
         </Card>
       </div>
 

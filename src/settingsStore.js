@@ -3,8 +3,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const DATA_FOLDER =
-  process.env.DATA_FOLDER ?? path.join(__dirname, '../data')
+const DATA_FOLDER = process.env.DATA_FOLDER ?? path.join(__dirname, '../data')
 const SETTINGS_FILE = path.join(DATA_FOLDER, 'settings.json')
 
 const DEFAULT_MIL_PREFIXES = [
@@ -84,6 +83,12 @@ const DEFAULTS = {
   enableMilitaryHeuristics: true,
   milCallsignPrefixes: DEFAULT_MIL_PREFIXES,
   webhookUrls: [],
+  ntfy: {
+    url: 'https://ntfy.sh',
+    topic: '',
+    token: '',
+    priority: 3,
+  },
   location: {
     lat: null,
     lon: null,
