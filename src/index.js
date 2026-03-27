@@ -118,6 +118,28 @@ async function processPoll() {
         lon: ac.lon,
       })
 
+      // Check distance threshold before notifying
+      const threshold = config.notifyDistanceThresholdMi
+      if (threshold !== null && threshold !== undefined) {
+        const { lat: cfgLat, lon: cfgLon } = config.location
+        if (
+          cfgLat !== null &&
+          cfgLon !== null &&
+          ac.lat !== undefined &&
+          ac.lon !== undefined
+        ) {
+          const distanceMi = haversineDistanceMiles(cfgLat, cfgLon, ac.lat, ac.lon)
+          if (distanceMi > threshold) {
+            logger.debug('Aircraft outside distance threshold, skipping notification', {
+              hex: ac.hex,
+              distanceMi: distanceMi.toFixed(1),
+              thresholdMi: threshold,
+            })
+            continue
+          }
+        }
+      }
+
       const callsign = ac.flight || ac.callsign || ac.hex || 'Unknown'
       const alertPayload = {
         title: `Aircraft Alert: ${callsign}`,

@@ -502,6 +502,26 @@ export default function App() {
               />
             </Field>
           </div>
+          <Field
+            label="Notify Distance Threshold (miles)"
+            hint="Only notify when an aircraft is within this distance. Leave blank to notify regardless of distance."
+          >
+            <Input
+              type="number"
+              min={0}
+              step={1}
+              value={settings.notifyDistanceThresholdMi ?? ''}
+              onChange={(e) => {
+                const raw = e.target.value
+                update(
+                  'notifyDistanceThresholdMi',
+                  raw === '' ? null : parseFloat(raw) || null,
+                )
+              }}
+              placeholder="e.g. 50 (leave blank to always notify)"
+              className="max-w-xs"
+            />
+          </Field>
         </Card>
 
         {/* Watch Callsigns */}

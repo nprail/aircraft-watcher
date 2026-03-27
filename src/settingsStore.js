@@ -93,6 +93,7 @@ const DEFAULTS = {
     lat: null,
     lon: null,
   },
+  notifyDistanceThresholdMi: null,
 }
 
 let _settings = JSON.parse(JSON.stringify(DEFAULTS))
