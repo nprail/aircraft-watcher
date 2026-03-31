@@ -4,7 +4,7 @@ require('dotenv').config()
 
 const config = require('./config')
 const logger = require('./logger')
-const { isInteresting, isCallsignMatch, isTypeMatch } = require('./matcher')
+const { isInteresting, isCallsignMatch, isTypeMatch, isMilitaryMatch } = require('./matcher')
 const { Deduper } = require('./deduper')
 const { formatMessage, haversineDistanceMiles } = require('./formatter')
 const { notifyWebhook } = require('./webhook')
@@ -18,6 +18,7 @@ const sightingsStore = new SightingsStore()
 startServer(WEB_PORT, sightingsStore)
 
 const deduper = new Deduper(config.alertCooldownSec)
+const milNoLocationCounts = new Map()
 let running = true
 let pollTimer = null
 
@@ -100,6 +101,34 @@ async function processPoll() {
           callsign: ac.flight || ac.callsign,
           hex: ac.hex,
         })
+      }
+
+      // Military aircraft without location — ignore for a configurable number
+      // of sightings before sending a notification. Only applies to aircraft
+      // matched via military heuristics (not explicit watch lists).
+      if (
+        config.milNoLocationGrace &&
+        !isCallsignMatch(ac, config.watchCallsigns) &&
+        !isTypeMatch(ac, config.watchTypes) &&
+        isMilitaryMatch(ac, config.milCallsignPrefixes) &&
+        ac.lat === undefined &&
+        ac.lon === undefined
+      ) {
+        const milKey = ac.hex || ac.r || ac.flight || ac.callsign || ''
+        const threshold = config.milNoLocationThreshold
+        if (milKey && threshold > 0) {
+          const count = (milNoLocationCounts.get(milKey) || 0) + 1
+          milNoLocationCounts.set(milKey, count)
+          if (count <= threshold) {
+            logger.debug('Military aircraft without location, ignoring', {
+              hex: ac.hex,
+              callsign: ac.flight || ac.callsign,
+              count,
+              threshold,
+            })
+            continue
+          }
+        }
       }
 
       // Check distance threshold before stamping the deduper — an aircraft that

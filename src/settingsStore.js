@@ -82,6 +82,8 @@ const DEFAULTS = {
   blacklistTypes: [],
   enableMilitaryHeuristics: true,
   milCallsignPrefixes: DEFAULT_MIL_PREFIXES,
+  milNoLocationGrace: true,
+  milNoLocationThreshold: 5,
   webhookUrls: [],
   ntfy: {
     url: 'https://ntfy.sh',
