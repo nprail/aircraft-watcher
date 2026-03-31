@@ -128,7 +128,8 @@ function TagInput({ items, onChange, onAdd, placeholder, transform }) {
 
 function UrlList({ items, onChange }) {
   const add = () => onChange([...items, ''])
-  const set = (i, v) => onChange(items.map((item, idx) => (idx === i ? v : item)))
+  const set = (i, v) =>
+    onChange(items.map((item, idx) => (idx === i ? v : item)))
   const remove = (i) => onChange(items.filter((_, idx) => idx !== i))
 
   return (
@@ -172,7 +173,9 @@ function UrlList({ items, onChange }) {
         <span className="text-lg leading-none">+</span> Add webhook URL
       </button>
       {items.length === 0 && (
-        <p className="text-sm text-gray-600 italic">No webhook URLs configured</p>
+        <p className="text-sm text-gray-600 italic">
+          No webhook URLs configured
+        </p>
       )}
     </div>
   )
@@ -200,7 +203,11 @@ function CollapsibleSection({ title, defaultOpen = false, children }) {
             open ? 'rotate-180' : ''
           }`}
         >
-          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
         </svg>
       </button>
       {open && <div className="space-y-5 pt-5">{children}</div>}
@@ -209,6 +216,99 @@ function CollapsibleSection({ title, defaultOpen = false, children }) {
 }
 
 // ─── SightingHistory ──────────────────────────────────────────────────────
+
+function SightingCard({ s, fmt, onBlacklistType, blacklistTypes }) {
+  const canBlacklist =
+    s.type &&
+    !(blacklistTypes ?? []).includes(s.type.toUpperCase()) &&
+    onBlacklistType
+
+  return (
+    <div className="bg-gray-800/50 border border-gray-700/60 rounded-xl p-4 space-y-3">
+      {/* Top row: callsign + time */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-blue-400 font-bold text-base leading-tight truncate">
+            {s.callsign ?? '—'}
+          </span>
+          {s.registration && (
+            <span className="text-gray-500 text-xs font-mono shrink-0">
+              {s.registration}
+            </span>
+          )}
+        </div>
+        <span className="text-gray-500 text-xs font-mono shrink-0 text-right">
+          {fmt(s.timestamp)}
+        </span>
+      </div>
+
+      {/* Middle row: type badge + distance */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {s.type && (
+          <span className="inline-flex items-center bg-gray-700/80 text-gray-300 text-xs font-semibold px-2 py-0.5 rounded-full">
+            {s.type}
+          </span>
+        )}
+        {s.distanceMi !== null && s.distanceMi !== undefined && (
+          <span className="text-gray-400 text-xs">
+            <span className="text-gray-300 font-medium">{s.distanceMi}</span> mi
+            away
+          </span>
+        )}
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-2 pt-1 border-t border-gray-700/50">
+        <div className="text-center">
+          <p className="text-gray-500 text-xs uppercase tracking-wide leading-none mb-1">
+            Alt
+          </p>
+          <p className="text-gray-200 text-sm font-medium">
+            {s.altitude !== null && s.altitude !== undefined
+              ? s.altitude.toLocaleString()
+              : '—'}
+          </p>
+          {s.altitude !== null && s.altitude !== undefined && (
+            <p className="text-gray-600 text-xs">ft</p>
+          )}
+        </div>
+        <div className="text-center">
+          <p className="text-gray-500 text-xs uppercase tracking-wide leading-none mb-1">
+            Speed
+          </p>
+          <p className="text-gray-200 text-sm font-medium">
+            {s.speed !== null && s.speed !== undefined ? s.speed : '—'}
+          </p>
+          {s.speed !== null && s.speed !== undefined && (
+            <p className="text-gray-600 text-xs">kts</p>
+          )}
+        </div>
+        <div className="text-center">
+          <p className="text-gray-500 text-xs uppercase tracking-wide leading-none mb-1">
+            Hdg
+          </p>
+          <p className="text-gray-200 text-sm font-medium">
+            {s.heading !== null && s.heading !== undefined
+              ? `${s.heading}°`
+              : '—'}
+          </p>
+        </div>
+      </div>
+
+      {/* Action */}
+      {canBlacklist && (
+        <button
+          type="button"
+          onClick={() => onBlacklistType(s.type)}
+          className="w-full text-xs text-red-400 hover:text-red-300 transition-colors border border-red-900/60 hover:border-red-700 px-3 py-1.5 rounded-lg"
+          title={`Blacklist type ${s.type}`}
+        >
+          Blacklist {s.type}
+        </button>
+      )}
+    </div>
+  )
+}
 
 function SightingHistory({ onBlacklistType, blacklistTypes }) {
   const [sightings, setSightings] = useState(null)
@@ -250,99 +350,222 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
     })
   }
 
+  const displayed = sightings ? sightings.slice(0, 20) : []
+
   return (
     <Card
       title="Sighting History"
-      description="Each entry records when a watched callsign was detected. Refreshes every 30 s."
+      description="Each entry records when a watched aircraft was detected. Refreshes every 30 s."
     >
-      <div className="flex gap-2 mb-2">
-        <Input
-          type="text"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter by callsign…"
-          className="max-w-xs"
-        />
+      {/* Filter bar */}
+      <div className="relative flex items-center gap-2">
+        <div className="relative flex-1 max-w-xs">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
+          >
+            <path
+              fillRule="evenodd"
+              d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <Input
+            type="text"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter by callsign…"
+            className="pl-9"
+          />
+        </div>
         {filter && (
           <button
             type="button"
             onClick={() => setFilter('')}
-            className="text-sm text-gray-400 hover:text-gray-200 transition-colors px-2"
+            className="text-sm text-gray-400 hover:text-gray-200 transition-colors px-3 py-2 rounded-lg hover:bg-gray-800"
           >
             Clear
           </button>
         )}
+        {!loading && !error && sightings && sightings.length > 0 && (
+          <span className="ml-auto text-xs text-gray-600 shrink-0">
+            {Math.min(sightings.length, 20)} of {sightings.length}
+          </span>
+        )}
       </div>
 
+      {/* Content */}
       {loading ? (
-        <p className="text-sm text-gray-500 italic">Loading…</p>
-      ) : error ? (
-        <p className="text-sm text-red-400 italic">Failed to load sighting history. Please try again.</p>
-      ) : !sightings || sightings.length === 0 ? (
-        <p className="text-sm text-gray-600 italic">No sightings recorded yet.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-800">
-          <table className="w-full text-sm text-left">
-            <thead>
-              <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wide">
-                <th className="px-3 py-2 whitespace-nowrap">Time</th>
-                <th className="px-3 py-2 whitespace-nowrap">Callsign</th>
-                <th className="px-3 py-2 whitespace-nowrap">Distance</th>
-                <th className="px-3 py-2 whitespace-nowrap">Reg</th>
-                <th className="px-3 py-2 whitespace-nowrap">Type</th>
-                <th className="px-3 py-2 whitespace-nowrap">Alt (ft)</th>
-                <th className="px-3 py-2 whitespace-nowrap">Spd (kts)</th>
-                <th className="px-3 py-2 whitespace-nowrap">Hdg</th>
-                <th className="px-3 py-2 whitespace-nowrap">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sightings.slice(0, 20).map((s, i) => (
-                <tr
-                  key={i}
-                  className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/40 transition-colors"
-                >
-                  <td className="px-3 py-2 text-gray-400 whitespace-nowrap font-mono text-xs">
-                    {fmt(s.timestamp)}
-                  </td>
-                  <td className="px-3 py-2 text-blue-400 font-semibold whitespace-nowrap">
-                    {s.callsign ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
-                    {s.distanceMi !== null && s.distanceMi !== undefined ? `${s.distanceMi} mi` : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
-                    {s.registration ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
-                    {s.type ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
-                    {s.altitude !== null ? s.altitude.toLocaleString() : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
-                    {s.speed !== null ? s.speed : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
-                    {s.heading !== null ? `${s.heading}°` : '—'}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {s.type && !(blacklistTypes ?? []).includes(s.type.toUpperCase()) && onBlacklistType && (
-                      <button
-                        type="button"
-                        onClick={() => onBlacklistType(s.type)}
-                        className="text-xs text-red-400 hover:text-red-300 transition-colors border border-red-800/60 hover:border-red-600 px-2 py-0.5 rounded"
-                        title={`Blacklist type ${s.type}`}
-                      >
-                        Blacklist
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex items-center justify-center py-10">
+          <svg
+            className="animate-spin h-5 w-5 text-gray-500 mr-2"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          <span className="text-sm text-gray-500">Loading…</span>
         </div>
+      ) : error ? (
+        <div className="flex items-center gap-2 py-4 px-4 bg-red-950/30 border border-red-900/40 rounded-lg">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="w-4 h-4 text-red-400 shrink-0"
+          >
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <p className="text-sm text-red-400">
+            Failed to load sighting history. Please try again.
+          </p>
+        </div>
+      ) : !sightings || sightings.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="w-8 h-8 text-gray-700 mb-2"
+          >
+            <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
+          </svg>
+          <p className="text-sm text-gray-600">No sightings recorded yet.</p>
+        </div>
+      ) : (
+        <>
+          {/* Mobile card list */}
+          <div className="md:hidden space-y-3">
+            {displayed.map((s, i) => (
+              <SightingCard
+                key={i}
+                s={s}
+                fmt={fmt}
+                onBlacklistType={onBlacklistType}
+                blacklistTypes={blacklistTypes}
+              />
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-800">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="border-b border-gray-800 bg-gray-900/60 text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">
+                    Time
+                  </th>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">
+                    Callsign
+                  </th>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">
+                    Dist
+                  </th>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">
+                    Reg
+                  </th>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">
+                    Type
+                  </th>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">
+                    Alt (ft)
+                  </th>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">
+                    Spd (kts)
+                  </th>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">
+                    Hdg
+                  </th>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800/60">
+                {displayed.map((s, i) => (
+                  <tr
+                    key={i}
+                    className="hover:bg-gray-800/40 transition-colors"
+                  >
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
+                      {fmt(s.timestamp)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="text-blue-400 font-semibold">
+                        {s.callsign ?? '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                      {s.distanceMi !== null && s.distanceMi !== undefined
+                        ? `${s.distanceMi} mi`
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 whitespace-nowrap font-mono text-xs">
+                      {s.registration ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {s.type ? (
+                        <span className="inline-flex items-center bg-gray-700/80 text-gray-300 text-xs font-semibold px-2 py-0.5 rounded-full">
+                          {s.type}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                      {s.altitude !== null && s.altitude !== undefined
+                        ? s.altitude.toLocaleString()
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                      {s.speed !== null && s.speed !== undefined
+                        ? s.speed
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                      {s.heading !== null && s.heading !== undefined
+                        ? `${s.heading}°`
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                      {s.type &&
+                        !(blacklistTypes ?? []).includes(
+                          s.type.toUpperCase(),
+                        ) &&
+                        onBlacklistType && (
+                          <button
+                            type="button"
+                            onClick={() => onBlacklistType(s.type)}
+                            className="text-xs text-red-400 hover:text-red-300 transition-colors border border-red-900/50 hover:border-red-700 px-2.5 py-1 rounded-lg"
+                            title={`Blacklist type ${s.type}`}
+                          >
+                            Blacklist
+                          </button>
+                        )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </Card>
   )
@@ -540,7 +763,10 @@ export default function App() {
             title="Blacklist"
             description="Never alert on aircraft matching these callsigns or ICAO type codes, even if they would otherwise match."
           >
-            <Field label="Blacklisted Callsigns" hint="Exact callsign match — e.g. UAL123">
+            <Field
+              label="Blacklisted Callsigns"
+              hint="Exact callsign match — e.g. UAL123"
+            >
               <TagInput
                 items={settings.blacklistCallsigns ?? []}
                 onChange={(v) => update('blacklistCallsigns', v)}
@@ -549,7 +775,10 @@ export default function App() {
                 transform={(s) => s.toUpperCase()}
               />
             </Field>
-            <Field label="Blacklisted Aircraft Types" hint="ICAO type designator — e.g. C172, B738">
+            <Field
+              label="Blacklisted Aircraft Types"
+              hint="ICAO type designator — e.g. C172, B738"
+            >
               <TagInput
                 items={settings.blacklistTypes ?? []}
                 onChange={(v) => update('blacklistTypes', v)}
@@ -588,7 +817,10 @@ export default function App() {
                   placeholder="https://ntfy.sh"
                 />
               </Field>
-              <Field label="Topic" hint="Leave blank to disable ntfy notifications.">
+              <Field
+                label="Topic"
+                hint="Leave blank to disable ntfy notifications."
+              >
                 <Input
                   type="text"
                   value={settings.ntfy?.topic ?? ''}
@@ -598,7 +830,10 @@ export default function App() {
               </Field>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Access Token" hint="Optional — for protected topics.">
+              <Field
+                label="Access Token"
+                hint="Optional — for protected topics."
+              >
                 <Input
                   type="password"
                   value={settings.ntfy?.token ?? ''}
@@ -671,7 +906,10 @@ export default function App() {
                   max={10000}
                   value={settings.maxAircraftPerPoll}
                   onChange={(e) =>
-                    update('maxAircraftPerPoll', parseInt(e.target.value) || 500)
+                    update(
+                      'maxAircraftPerPoll',
+                      parseInt(e.target.value) || 500,
+                    )
                   }
                 />
               </Field>
@@ -755,8 +993,8 @@ export default function App() {
                   Enable Military Heuristics
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Detect military aircraft by callsign prefix, ICAO category, and
-                  database flags
+                  Detect military aircraft by callsign prefix, ICAO category,
+                  and database flags
                 </p>
               </div>
               <Toggle
@@ -774,7 +1012,8 @@ export default function App() {
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       Suppress notifications for military aircraft that have no
-                      position data until they are seen a certain number of times
+                      position data until they are seen a certain number of
+                      times
                     </p>
                   </div>
                   <Toggle
