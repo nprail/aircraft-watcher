@@ -1,8 +1,6 @@
-'use strict'
-
-const zlib = require('zlib')
-const { promisify } = require('util')
-const logger = require('./logger')
+import zlib from 'zlib'
+import { promisify } from 'util'
+import logger from './logger.js'
 
 const gunzip = promisify(zlib.gunzip)
 
@@ -69,7 +67,7 @@ async function refreshDb() {
  * Initialises the DB and schedules daily refreshes.
  * Resolves once the first load attempt completes (success or failure).
  */
-async function init() {
+export async function init() {
   await refreshDb()
   refreshTimer = setInterval(refreshDb, REFRESH_INTERVAL_MS)
   // Don't keep the Node process alive just for the refresh timer
@@ -81,13 +79,11 @@ async function init() {
  * @param {string} hex
  * @returns {{ registration: string, typeCode: string, isMilitary: boolean } | null}
  */
-function getAircraftInfo(hex) {
+export function getAircraftInfo(hex) {
   if (!hex) return null
   return db.get(hex.toLowerCase()) || null
 }
 
-function shutdown() {
+export function shutdown() {
   if (refreshTimer) clearInterval(refreshTimer)
 }
-
-module.exports = { init, getAircraftInfo, shutdown }

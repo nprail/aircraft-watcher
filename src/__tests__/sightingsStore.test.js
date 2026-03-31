@@ -1,9 +1,7 @@
-'use strict'
-
-const fs = require('fs')
-const os = require('os')
-const path = require('path')
-const { SightingsStore } = require('../sightingsStore')
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+import { SightingsStore } from '../sightingsStore.js'
 
 const SAMPLE_AC = {
   flight: 'UAL123',

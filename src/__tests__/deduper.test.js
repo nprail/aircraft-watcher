@@ -1,9 +1,7 @@
-'use strict'
-
-const fs = require('fs')
-const os = require('os')
-const path = require('path')
-const { Deduper, aircraftKey } = require('../deduper')
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+import { Deduper, aircraftKey } from '../deduper.js'
 
 describe('aircraftKey', () => {
   test('prefers hex', () => {

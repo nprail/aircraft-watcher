@@ -1,26 +1,24 @@
-'use strict'
+import 'dotenv/config'
 
-require('dotenv').config()
-
-const config = require('./config')
-const logger = require('./logger')
-const {
+import config from './config.js'
+import logger from './logger.js'
+import {
   isInteresting,
   isCallsignMatch,
   isTypeMatch,
   isMilitaryMatch,
-} = require('./matcher')
-const { Deduper } = require('./deduper')
-const { formatMessage } = require('./formatter')
-const aircraftDb = require('./aircraftDb')
-const {
+} from './matcher.js'
+import { Deduper } from './deduper.js'
+import { formatMessage } from './formatter.js'
+import * as aircraftDb from './aircraftDb.js'
+import {
   fetchAircraft,
   enrichAircraft,
   computeDistanceMi,
   sendNotifications,
-} = require('./utils')
-const { startServer } = require('./server')
-const { SightingsStore } = require('./sightingsStore')
+} from './utils.js'
+import { startServer } from './server.js'
+import { SightingsStore } from './sightingsStore.js'
 
 const WEB_PORT = parseInt(process.env.WEB_PORT, 10) || 3000
 const sightingsStore = new SightingsStore()

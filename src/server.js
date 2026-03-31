@@ -1,13 +1,13 @@
-'use strict'
+import express from 'express'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import * as settingsStore from './settingsStore.js'
+import logger from './logger.js'
 
-const express = require('express')
-const path = require('path')
-const settingsStore = require('./settingsStore')
-const logger = require('./logger')
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = path.join(__dirname, '../web/dist')
 
-function startServer(port, sightingsStore) {
+export function startServer(port, sightingsStore) {
   const app = express()
 
   app.use(express.json())
@@ -56,5 +56,3 @@ function startServer(port, sightingsStore) {
 
   return server
 }
-
-module.exports = { startServer }

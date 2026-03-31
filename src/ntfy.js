@@ -1,8 +1,6 @@
-'use strict'
+import config from './config.js'
 
-const config = require('./config')
-
-async function notifyNtfy({ title, message, url }) {
+export async function notifyNtfy({ title, message, url }) {
   const { url: serverUrl, topic, token, priority } = config.ntfy || {}
   if (!topic) return // not configured, skip silently
 
@@ -29,5 +27,3 @@ async function notifyNtfy({ title, message, url }) {
     throw new Error(`ntfy request failed: ${res.status} ${text}`)
   }
 }
-
-module.exports = { notifyNtfy }

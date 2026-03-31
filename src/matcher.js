@@ -1,12 +1,10 @@
-'use strict'
-
 /**
  * ICAO type designators for aircraft that are primarily civilian.
  * Military variants of these airframes (e.g., USAF Cessna 172 trainers) are
  * intentionally excluded from military alerts because they are not tactically
  * significant and generate noise.
  */
-const CIVILIAN_TYPE_CODES = new Set([
+export const CIVILIAN_TYPE_CODES = new Set([
   // Cessna piston singles
   'C120',
   'C140',
@@ -291,14 +289,14 @@ const CIVILIAN_TYPE_CODES = new Set([
  * Extracts the callsign/flight from an aircraft object.
  * Checks flight and callsign fields.
  */
-function getCallsign(aircraft) {
+export function getCallsign(aircraft) {
   return (aircraft.flight || aircraft.callsign || '').trim().toUpperCase()
 }
 
 /**
  * Extracts the hex/ICAO address from an aircraft object.
  */
-function getHex(aircraft) {
+export function getHex(aircraft) {
   return (aircraft.hex || aircraft.icao || '').trim().toLowerCase()
 }
 
@@ -307,7 +305,7 @@ function getHex(aircraft) {
  * @param {object} aircraft
  * @param {string[]} watchCallsigns - uppercased list of callsigns to watch
  */
-function isCallsignMatch(aircraft, watchCallsigns) {
+export function isCallsignMatch(aircraft, watchCallsigns) {
   if (!watchCallsigns || watchCallsigns.length === 0) return false
   const callsign = getCallsign(aircraft)
   if (!callsign) return false
@@ -320,7 +318,7 @@ function isCallsignMatch(aircraft, watchCallsigns) {
  * @param {object} aircraft
  * @param {string[]} milCallsignPrefixes - uppercased list of military callsign prefixes
  */
-function isMilitaryMatch(aircraft, milCallsignPrefixes) {
+export function isMilitaryMatch(aircraft, milCallsignPrefixes) {
   // Never flag a known civilian airframe as military (e.g. Cessna, private jets)
   const typeCode = (aircraft.t || aircraft.type || '').trim().toUpperCase()
   if (typeCode && CIVILIAN_TYPE_CODES.has(typeCode)) return false
@@ -348,7 +346,7 @@ function isMilitaryMatch(aircraft, milCallsignPrefixes) {
  * @param {object} aircraft
  * @param {string[]} watchTypes - uppercased list of ICAO type codes to watch
  */
-function isTypeMatch(aircraft, watchTypes) {
+export function isTypeMatch(aircraft, watchTypes) {
   if (!watchTypes || watchTypes.length === 0) return false
   const typeCode = (aircraft.t || aircraft.type || '').trim().toUpperCase()
   if (!typeCode) return false
@@ -359,7 +357,7 @@ function isTypeMatch(aircraft, watchTypes) {
  * @param {object} aircraft
  * @param {object} config - parsed config object
  */
-function isInteresting(aircraft, config) {
+export function isInteresting(aircraft, config) {
   // Watch checks — explicit watches override all ignores
   if (isCallsignMatch(aircraft, config.watchCallsigns)) return true
   if (isTypeMatch(aircraft, config.watchTypes)) return true
@@ -389,14 +387,4 @@ function isInteresting(aircraft, config) {
   )
     return true
   return false
-}
-
-module.exports = {
-  CIVILIAN_TYPE_CODES,
-  getCallsign,
-  getHex,
-  isCallsignMatch,
-  isTypeMatch,
-  isMilitaryMatch,
-  isInteresting,
 }

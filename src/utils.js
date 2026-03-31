@@ -1,17 +1,15 @@
-'use strict'
-
-const config = require('./config')
-const logger = require('./logger')
-const { haversineDistanceMiles } = require('./formatter')
-const { notifyWebhook } = require('./webhook')
-const { notifyNtfy } = require('./ntfy')
-const aircraftDb = require('./aircraftDb')
+import config from './config.js'
+import logger from './logger.js'
+import { haversineDistanceMiles } from './formatter.js'
+import { notifyWebhook } from './webhook.js'
+import { notifyNtfy } from './ntfy.js'
+import * as aircraftDb from './aircraftDb.js'
 
 /**
  * Fetches the aircraft list from the configured tar1090 feed.
  * @returns {Promise<object[]>}
  */
-async function fetchAircraft() {
+export async function fetchAircraft() {
   const feedUrl = `${config.tar1090Url.replace(/\/$/, '')}/data/aircraft.json`
   const res = await fetch(feedUrl, {
     signal: AbortSignal.timeout(config.fetchTimeoutMs),
@@ -24,7 +22,7 @@ async function fetchAircraft() {
 }
 
 /** Enriches an aircraft object in-place with DB registration/type info and position fallback. */
-function enrichAircraft(ac) {
+export function enrichAircraft(ac) {
   const hex = ac.hex || ac.icao || ''
   const dbInfo = aircraftDb.getAircraftInfo(hex)
   if (dbInfo) {
@@ -43,7 +41,7 @@ function enrichAircraft(ac) {
  * Returns the great-circle distance in miles from the configured home location
  * to the aircraft, or null if either endpoint is unavailable.
  */
-function computeDistanceMi(ac) {
+export function computeDistanceMi(ac) {
   const { lat: cfgLat, lon: cfgLon } = config.location
   if (
     cfgLat === null ||
@@ -57,7 +55,7 @@ function computeDistanceMi(ac) {
 }
 
 /** Sends an alert to all configured notification channels. */
-async function sendNotifications(payload) {
+export async function sendNotifications(payload) {
   try {
     await notifyWebhook(payload)
     logger.info('Webhook notified')
@@ -71,11 +69,4 @@ async function sendNotifications(payload) {
   } catch (err) {
     logger.error('ntfy error', { error: err.message })
   }
-}
-
-module.exports = {
-  fetchAircraft,
-  enrichAircraft,
-  computeDistanceMi,
-  sendNotifications,
 }

@@ -1,5 +1,3 @@
-'use strict'
-
 const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 }
 
 const LOG_LEVEL = (process.env.LOG_LEVEL || 'info').toLowerCase()
@@ -12,11 +10,9 @@ function log(level, msg, data) {
   process.stdout.write(JSON.stringify(entry) + '\n')
 }
 
-const logger = {
+export default {
   debug: (msg, data) => log('debug', msg, data),
   info: (msg, data) => log('info', msg, data),
   warn: (msg, data) => log('warn', msg, data),
   error: (msg, data) => log('error', msg, data),
 }
-
-module.exports = logger

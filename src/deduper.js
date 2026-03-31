@@ -1,15 +1,12 @@
-'use strict'
-
-const fs = require('fs')
-const os = require('os')
-const path = require('path')
-const { getHex, getCallsign } = require('./matcher')
+import fs from 'fs'
+import path from 'path'
+import { getHex, getCallsign } from './matcher.js'
 
 /**
  * Builds a stable deduplication key for an aircraft.
  * Prefers hex, then falls back to callsign.
  */
-function aircraftKey(aircraft) {
+export function aircraftKey(aircraft) {
   const hex = getHex(aircraft)
   if (hex) return `hex:${hex}`
   const callsign = getCallsign(aircraft)
@@ -17,7 +14,7 @@ function aircraftKey(aircraft) {
   return null
 }
 
-class Deduper {
+export class Deduper {
   /**
    * @param {number} cooldownSec - seconds before the same aircraft can be alerted again
    */
@@ -116,5 +113,3 @@ class Deduper {
     await fs.promises.rename(tmp, filePath)
   }
 }
-
-module.exports = { Deduper, aircraftKey }

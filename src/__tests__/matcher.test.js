@@ -1,6 +1,4 @@
-'use strict'
-
-const {
+import {
   isCallsignMatch,
   isTypeMatch,
   isMilitaryMatch,
@@ -8,7 +6,7 @@ const {
   getCallsign,
   getHex,
   CIVILIAN_TYPE_CODES,
-} = require('../matcher')
+} from '../matcher.js'
 
 describe('getCallsign', () => {
   test('returns flight field trimmed uppercased', () => {

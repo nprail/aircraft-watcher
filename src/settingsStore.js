@@ -1,12 +1,13 @@
-'use strict'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
-const fs = require('fs')
-const path = require('path')
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const DATA_FOLDER = process.env.DATA_FOLDER ?? path.join(__dirname, '../data')
 const SETTINGS_FILE = path.join(DATA_FOLDER, 'settings.json')
 
-const DEFAULT_MIL_PREFIXES = [
+export const DEFAULT_MIL_PREFIXES = [
   'RCH',
   'REACH',
   'RRR',
@@ -70,7 +71,7 @@ const DEFAULT_MIL_PREFIXES = [
   'HERCULES',
 ]
 
-const DEFAULTS = {
+export const DEFAULTS = {
   tar1090Url: 'http://localhost:8080',
   pollIntervalSec: 10,
   alertCooldownSec: 1200,
@@ -114,11 +115,11 @@ function load() {
   }
 }
 
-function get() {
+export function get() {
   return _settings
 }
 
-function update(newSettings) {
+export function update(newSettings) {
   _settings = { ...DEFAULTS, ...newSettings }
   const dir = path.dirname(SETTINGS_FILE)
   if (!fs.existsSync(dir)) {
@@ -129,5 +130,3 @@ function update(newSettings) {
 }
 
 load()
-
-module.exports = { get, update, DEFAULTS, DEFAULT_MIL_PREFIXES }

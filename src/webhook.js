@@ -1,8 +1,6 @@
-'use strict'
+import config from './config.js'
 
-const config = require('./config')
-
-async function notifyWebhook({ title, message, url }) {
+export async function notifyWebhook({ title, message, url }) {
   const urls = (config.webhookUrls || []).filter(Boolean)
   if (urls.length === 0) {
     throw new Error('No webhook URLs configured')
@@ -28,5 +26,3 @@ async function notifyWebhook({ title, message, url }) {
     throw new Error(failures.map((f) => f.reason.message).join('; '))
   }
 }
-
-module.exports = { notifyWebhook }

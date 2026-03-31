@@ -1,12 +1,10 @@
-'use strict'
-
-const { getCallsign, getHex } = require('./matcher')
-const config = require('./config')
+import { getCallsign, getHex } from './matcher.js'
+import config from './config.js'
 
 /**
  * Calculates the distance in miles between two lat/lon points using the Haversine formula.
  */
-function haversineDistanceMiles(lat1, lon1, lat2, lon2) {
+export function haversineDistanceMiles(lat1, lon1, lat2, lon2) {
   const R = 3958.8 // Earth radius in miles
   const toRad = (deg) => (deg * Math.PI) / 180
   const dLat = toRad(lat2 - lat1)
@@ -22,7 +20,7 @@ function haversineDistanceMiles(lat1, lon1, lat2, lon2) {
  * @param {object} aircraft
  * @returns {string}
  */
-function formatMessage(aircraft) {
+export function formatMessage(aircraft) {
   const callsign = getCallsign(aircraft) || 'N/A'
   const registration = (aircraft.r || '').trim() || 'N/A'
   const type = (aircraft.t || aircraft.type || aircraft.category || 'N/A')
@@ -61,5 +59,3 @@ function formatMessage(aircraft) {
 
   return message
 }
-
-module.exports = { formatMessage, haversineDistanceMiles }

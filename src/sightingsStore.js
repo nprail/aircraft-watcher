@@ -1,7 +1,5 @@
-'use strict'
-
-const fs = require('fs')
-const path = require('path')
+import fs from 'fs'
+import path from 'path'
 
 const MAX_SIGHTINGS = 500
 
@@ -12,7 +10,7 @@ const MAX_SIGHTINGS = 500
  *
  * Persisted as a flat JSON array, newest entries first, capped at MAX_SIGHTINGS.
  */
-class SightingsStore {
+export class SightingsStore {
   constructor() {
     /** @type {Array<object>} */
     this._sightings = []
@@ -143,5 +141,3 @@ class SightingsStore {
     await fs.promises.rename(tmp, filePath)
   }
 }
-
-module.exports = { SightingsStore }
