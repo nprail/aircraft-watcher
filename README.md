@@ -1,17 +1,21 @@
 # aircraft-watcher
 
-A Node.js service that polls an ADS-B aircraft feed and sends webhook alerts when interesting aircraft are detected — watched callsigns or military aircraft. Includes a React/Tailwind web UI for live settings management.
+A Node.js service that polls an ADS-B aircraft feed and sends alerts when interesting aircraft are detected — watched callsigns, watched ICAO types, or military aircraft. Includes a React/Tailwind web UI for live settings management and sighting history.
 
 ## Features
 
 - Polls a live ADS-B JSON feed (from a [tar1090](https://github.com/wiedehopf/tar1090) instance) at a configurable interval
 - Military aircraft detection: explicit flag from aircraft DB, category strings, or callsign prefix matching
 - Civilian type exclusion list to suppress false positives (Cessnas, Pipers, etc.)
-- Watch list alerts for specific callsigns
+- Watch list alerts for specific callsigns or ICAO type designators
 - Blacklist to permanently suppress alerts for specific callsigns or ICAO aircraft types
 - Enriches aircraft data from the [tar1090-db](https://github.com/wiedehopf/tar1090-db) database (registration, type code, military flag), refreshed every 24 hours
 - Webhook notifications with a link to the tar1090 map
+- ntfy.sh push notifications (optional, with access token support)
+- Optional distance threshold — only notify when an aircraft is within a configured radius
+- Military no-location grace period — suppress alerts for military aircraft until they have a position fix
 - Per-aircraft alert cooldown to prevent notification floods, persisted across restarts
+- Sighting history for watched callsigns and types, viewable in the web UI
 - Web UI for managing all settings without restarting
 - Structured JSON logging to stdout
 - Graceful shutdown on `SIGTERM`/`SIGINT`
@@ -58,13 +62,22 @@ All application settings are managed via `data/settings.json` and can be updated
 | `alertCooldownSec`         | `1200`                                     | Seconds before re-alerting on the same aircraft (20 min)             |
 | `maxAircraftPerPoll`       | `500`                                      | Safety cap on aircraft processed per poll cycle                      |
 | `fetchTimeoutMs`           | `15000`                                    | HTTP fetch timeout for the feed request (ms)                         |
-| `watchCallsigns`           | `[]`                                       | Callsigns to always alert on (case-insensitive exact match)          |
-| `blacklistCallsigns`       | `[]`                                       | Callsigns to never alert on, even if they match the watch list or military heuristics |
-| `blacklistTypes`           | `[]`                                       | ICAO type designators (e.g. `C172`, `B738`) to never alert on       |
-| `enableMilitaryHeuristics` | `true`                                     | Master toggle for military aircraft detection                        |
-| `milCallsignPrefixes`      | _(60+ entries — see source)_               | Callsign prefixes that imply military (e.g. `RCH`, `REACH`, `REAPER`) |
-| `webhookUrls`              | `[]`                                       | HTTP POST targets for alert notifications                            |
-| `location`                 | `null`                                     | `{ lat, lon }` — your coordinates, used to compute distance in alerts |
+| `watchCallsigns`              | `[]`                                       | Callsigns to always alert on (exact match, case-insensitive)         |
+| `watchTypes`                  | `[]`                                       | ICAO type designators to always alert on (e.g. `C130`, `B52`)       |
+| `blacklistCallsigns`          | `[]`                                       | Callsigns to never alert on, even if they match the watch list or military heuristics |
+| `blacklistTypes`              | `[]`                                       | ICAO type designators (e.g. `C172`, `B738`) to never alert on       |
+| `enableMilitaryHeuristics`    | `true`                                     | Master toggle for military aircraft detection                        |
+| `milCallsignPrefixes`         | _(60+ entries — see source)_               | Callsign prefixes that imply military (e.g. `RCH`, `REACH`, `REAPER`) |
+| `milNoLocationGrace`          | `true`                                     | Suppress military alerts until the aircraft has a position fix       |
+| `milNoLocationThreshold`      | `5`                                        | Number of sightings without a position before alerting anyway        |
+| `webhookUrls`                 | `[]`                                       | HTTP POST targets for alert notifications                            |
+| `ntfy`                        | _(see below)_                             | ntfy.sh push notification settings                                   |
+| `ntfy.url`                    | `https://ntfy.sh`                          | ntfy server URL                                                      |
+| `ntfy.topic`                  | `""`                                       | ntfy topic — leave blank to disable                                  |
+| `ntfy.token`                  | `""`                                       | Optional Bearer token for protected topics                           |
+| `ntfy.priority`               | `3`                                        | Message priority 1 (min) – 5 (max)                                  |
+| `location`                    | `{ lat: null, lon: null }`                 | Your coordinates, used to compute distance in alerts                 |
+| `notifyDistanceThresholdMi`   | `null`                                     | Only notify when aircraft is within this distance (miles); `null` to always notify |
 
 ### Environment variables
 
@@ -75,7 +88,7 @@ All application settings are managed via `data/settings.json` and can be updated
 
 ## Alert Format
 
-Alerts are sent as `POST` requests to all configured `webhookUrls` with the following JSON body:
+Alerts are delivered to all configured notification channels with the following payload:
 
 ```json
 {
@@ -87,17 +100,28 @@ Alerts are sent as `POST` requests to all configured `webhookUrls` with the foll
 
 The `url` field links directly to the tar1090 map centred on the aircraft. Distance is only included when `location` is configured.
 
+### Webhook
+
+The payload is sent as a `POST` request with a JSON body to each URL in `webhookUrls`.
+
+### ntfy.sh
+
+The `message` and `url` are combined into the request body, with `title` sent as a header. Notifications are sent to the configured `ntfy.topic`; leave the topic blank to disable ntfy.
+
 ## Web UI
 
 The web UI is served at `http://localhost:3000` (or the configured `WEB_PORT`). It provides settings cards for:
 
+- **Sighting History** — Browse recent sightings for watched callsigns and types (auto-refreshes every 30 s)
 - **Feed Source** — ADS-B feed URL, poll interval, fetch timeout, max aircraft per poll
 - **Alert Settings** — alert cooldown
-- **Location** — latitude/longitude for distance calculations
+- **Location** — latitude/longitude for distance calculations and optional distance threshold
 - **Watch Callsigns** — manage the callsign watch list
+- **Watch Aircraft Types** — alert on specific ICAO type designators regardless of callsign
 - **Blacklist** — suppress alerts by callsign or ICAO type code (overrides all other rules)
-- **Military Detection** — toggle heuristics on/off, edit callsign prefixes
+- **Military Detection** — toggle heuristics on/off, configure no-location grace period, edit callsign prefixes
 - **Webhooks** — add/remove webhook URLs
+- **ntfy.sh Notifications** — configure ntfy server, topic, access token, and priority
 
 Changes are saved immediately via the API and take effect on the next poll cycle.
 
@@ -107,17 +131,21 @@ Changes are saved immediately via the API and take effect on the next poll cycle
 src/
   index.js          — Main entry point and poll loop
   config.js         — Live config proxy over settingsStore + env vars
-  matcher.js        — Aircraft matching logic (callsign watch list + military heuristics)
+  matcher.js        — Aircraft matching logic (callsign/type watch list + military heuristics)
   deduper.js        — Alert deduplication with cooldown tracking
   formatter.js      — Builds the plain-text alert message
   webhook.js        — Sends webhook notifications
+  ntfy.js           — Sends ntfy.sh push notifications
+  utils.js          — Shared helpers (fetch, enrich, distance, send notifications)
   aircraftDb.js     — Downloads and maintains the in-memory aircraft registry
   settingsStore.js  — Reads/writes data/settings.json
+  sightingsStore.js — In-memory + persisted sighting history for watched aircraft
   server.js         — Express server (REST API + serves the web UI)
   logger.js         — Structured JSON logger
   __tests__/
     matcher.test.js
     deduper.test.js
+    sightingsStore.test.js
 web/
   src/
     App.jsx         — React settings UI
@@ -145,6 +173,7 @@ All output is structured JSON lines to stdout:
 
 ```json
 {"level":"info","time":"2026-01-15T12:00:00.000Z","msg":"Aircraft watcher starting","data":{}}
-{"level":"info","time":"2026-01-15T12:00:10.000Z","msg":"Interesting aircraft detected","data":{"hex":"ae1234","callsign":"RCH210"}}
+{"level":"info","time":"2026-01-15T12:00:10.000Z","msg":"Interesting aircraft detected","data":{"hex":"ae1234","callsign":"RCH210","lat":37.77,"lon":-122.41}}
 {"level":"info","time":"2026-01-15T12:00:10.100Z","msg":"Webhook notified","data":{}}
+{"level":"info","time":"2026-01-15T12:00:10.150Z","msg":"ntfy notified","data":{}}
 ```
