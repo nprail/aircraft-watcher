@@ -36,8 +36,8 @@ class SightingsStore {
       altitude: aircraft.alt_baro !== undefined ? aircraft.alt_baro : null,
       speed: aircraft.gs !== undefined ? Math.round(aircraft.gs) : null,
       heading: aircraft.track !== undefined ? Math.round(aircraft.track) : null,
-      lat: aircraft.lat !== undefined ? aircraft.lat : null,
-      lon: aircraft.lon !== undefined ? aircraft.lon : null,
+      lat: aircraft.lat ?? aircraft.lastPosition?.lat ?? null,
+      lon: aircraft.lon ?? aircraft.lastPosition?.lon ?? null,
     }
 
     this._sightings.unshift(entry)
@@ -76,8 +76,8 @@ class SightingsStore {
 
     if (existing && now - existing.timestamp < cooldownMs) {
       existing.lastUpdated = now
-      existing.lat = aircraft.lat !== undefined ? aircraft.lat : existing.lat
-      existing.lon = aircraft.lon !== undefined ? aircraft.lon : existing.lon
+      existing.lat = aircraft.lat ?? aircraft.lastPosition?.lat ?? existing.lat
+      existing.lon = aircraft.lon ?? aircraft.lastPosition?.lon ?? existing.lon
       existing.altitude =
         aircraft.alt_baro !== undefined ? aircraft.alt_baro : existing.altitude
       existing.speed =

@@ -4,7 +4,12 @@ require('dotenv').config()
 
 const config = require('./config')
 const logger = require('./logger')
-const { isInteresting, isCallsignMatch, isTypeMatch, isMilitaryMatch } = require('./matcher')
+const {
+  isInteresting,
+  isCallsignMatch,
+  isTypeMatch,
+  isMilitaryMatch,
+} = require('./matcher')
 const { Deduper } = require('./deduper')
 const { formatMessage, haversineDistanceMiles } = require('./formatter')
 const { notifyWebhook } = require('./webhook')
@@ -73,6 +78,11 @@ async function processPoll() {
         if (!ac.t && dbInfo.typeCode) ac.t = dbInfo.typeCode
         if (dbInfo.isMilitary) ac.military = true
       }
+
+      if (ac.lat === undefined && ac.lastPosition?.lat !== undefined)
+        ac.lat = ac.lastPosition.lat
+      if (ac.lon === undefined && ac.lastPosition?.lon !== undefined)
+        ac.lon = ac.lastPosition.lon
 
       if (!isInteresting(ac, config)) continue
 
@@ -143,13 +153,21 @@ async function processPoll() {
           ac.lat !== undefined &&
           ac.lon !== undefined
         ) {
-          const distanceMi = haversineDistanceMiles(cfgLat, cfgLon, ac.lat, ac.lon)
+          const distanceMi = haversineDistanceMiles(
+            cfgLat,
+            cfgLon,
+            ac.lat,
+            ac.lon,
+          )
           if (distanceMi > threshold) {
-            logger.debug('Aircraft outside distance threshold, skipping notification', {
-              hex: ac.hex,
-              distanceMi: distanceMi.toFixed(1),
-              thresholdMi: threshold,
-            })
+            logger.debug(
+              'Aircraft outside distance threshold, skipping notification',
+              {
+                hex: ac.hex,
+                distanceMi: distanceMi.toFixed(1),
+                thresholdMi: threshold,
+              },
+            )
             continue
           }
         }

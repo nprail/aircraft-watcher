@@ -43,15 +43,12 @@ function formatMessage(aircraft) {
   if (
     cfgLat !== null &&
     cfgLon !== null &&
-    aircraft.lat !== undefined &&
-    aircraft.lon !== undefined
+    (aircraft.lat ?? aircraft.lastPosition?.lat) !== undefined &&
+    (aircraft.lon ?? aircraft.lastPosition?.lon) !== undefined
   ) {
-    const miles = haversineDistanceMiles(
-      cfgLat,
-      cfgLon,
-      aircraft.lat,
-      aircraft.lon,
-    )
+    const lat = aircraft.lat ?? aircraft.lastPosition?.lat
+    const lon = aircraft.lon ?? aircraft.lastPosition?.lon
+    const miles = haversineDistanceMiles(cfgLat, cfgLon, lat, lon)
     distanceStr = `${Math.round(miles)} mi`
   }
 
