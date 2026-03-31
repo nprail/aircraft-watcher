@@ -174,9 +174,39 @@ function UrlList({ items, onChange }) {
   )
 }
 
-// ─── App ──────────────────────────────────────────────────────────────────
+// ─── CollapsibleSection ───────────────────────────────────────────────────
 
-function SightingHistory() {
+function CollapsibleSection({ title, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between py-3 px-1 text-left group border-b border-gray-800"
+      >
+        <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider group-hover:text-white transition-colors">
+          {title}
+        </span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className={`w-4 h-4 text-gray-500 group-hover:text-gray-300 transition-transform duration-200 ${
+            open ? 'rotate-180' : ''
+          }`}
+        >
+          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+        </svg>
+      </button>
+      {open && <div className="space-y-5 pt-5">{children}</div>}
+    </div>
+  )
+}
+
+// ─── SightingHistory ──────────────────────────────────────────────────────
+
+function SightingHistory({ onBlacklistType, blacklistTypes }) {
   const [sightings, setSightings] = useState(null)
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(true)
@@ -259,10 +289,11 @@ function SightingHistory() {
                 <th className="px-3 py-2 whitespace-nowrap">Alt (ft)</th>
                 <th className="px-3 py-2 whitespace-nowrap">Spd (kts)</th>
                 <th className="px-3 py-2 whitespace-nowrap">Hdg</th>
+                <th className="px-3 py-2 whitespace-nowrap">Action</th>
               </tr>
             </thead>
             <tbody>
-              {sightings.map((s, i) => (
+              {sightings.slice(0, 20).map((s, i) => (
                 <tr
                   key={i}
                   className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/40 transition-colors"
@@ -290,6 +321,18 @@ function SightingHistory() {
                   </td>
                   <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
                     {s.heading !== null ? `${s.heading}°` : '—'}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {s.type && !(blacklistTypes ?? []).includes(s.type.toUpperCase()) && onBlacklistType && (
+                      <button
+                        type="button"
+                        onClick={() => onBlacklistType(s.type)}
+                        className="text-xs text-red-400 hover:text-red-300 transition-colors border border-red-800/60 hover:border-red-600 px-2 py-0.5 rounded"
+                        title={`Blacklist type ${s.type}`}
+                      >
+                        Blacklist
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -342,6 +385,29 @@ export default function App() {
       ntfy: { ...prev.ntfy, [key]: value },
     }))
   }, [])
+
+  const handleBlacklistType = useCallback(
+    async (type) => {
+      const upperType = type.toUpperCase()
+      if ((settings.blacklistTypes ?? []).includes(upperType)) return
+      const updated = {
+        ...settings,
+        blacklistTypes: [...(settings.blacklistTypes ?? []), upperType],
+      }
+      setSettings(updated)
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated),
+        })
+        if (res.ok) setSettings(await res.json())
+      } catch (err) {
+        console.error('Failed to blacklist type:', err)
+      }
+    },
+    [settings],
+  )
 
   const handleSave = async () => {
     setSaving(true)
@@ -400,317 +466,331 @@ export default function App() {
         </div>
 
         {/* Sighting History */}
-        <SightingHistory />
+        <SightingHistory
+          onBlacklistType={handleBlacklistType}
+          blacklistTypes={settings.blacklistTypes}
+        />
 
-        {/* Feed Source */}
-        <Card
-          title="Feed Source"
-          description="Where to fetch the ADS-B aircraft list from."
-        >
-          <Field label="ADS-B Feed URL">
-            <Input
-              type="url"
-              value={settings.tar1090Url}
-              onChange={(e) => update('tar1090Url', e.target.value)}
-              placeholder="https://example.com/tar1090"
-            />
-          </Field>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Field label="Poll Interval (s)">
-              <Input
-                type="number"
-                min={1}
-                max={3600}
-                value={settings.pollIntervalSec}
-                onChange={(e) =>
-                  update('pollIntervalSec', parseInt(e.target.value) || 10)
-                }
-              />
-            </Field>
-            <Field label="Fetch Timeout (ms)">
-              <Input
-                type="number"
-                min={1000}
-                step={1000}
-                value={settings.fetchTimeoutMs}
-                onChange={(e) =>
-                  update('fetchTimeoutMs', parseInt(e.target.value) || 15000)
-                }
-              />
-            </Field>
-            <Field
-              label="Max Aircraft / Poll"
-              hint="Safety cap to prevent runaway processing."
-            >
-              <Input
-                type="number"
-                min={1}
-                max={10000}
-                value={settings.maxAircraftPerPoll}
-                onChange={(e) =>
-                  update('maxAircraftPerPoll', parseInt(e.target.value) || 500)
-                }
-              />
-            </Field>
-          </div>
-        </Card>
-
-        {/* Alert Settings */}
-        <Card title="Alert Settings">
-          <Field
-            label="Alert Cooldown (s)"
-            hint={`Minimum time between repeated alerts for the same aircraft (${cooldownMin} min).`}
+        {/* ── Watchlist ─────────────────────────────────────────────────── */}
+        <CollapsibleSection title="Watchlist">
+          {/* Watch Callsigns */}
+          <Card
+            title="Watch Callsigns"
+            description="Alert on any aircraft with one of these exact callsigns."
           >
-            <Input
-              type="number"
-              min={0}
-              value={settings.alertCooldownSec}
-              onChange={(e) =>
-                update('alertCooldownSec', parseInt(e.target.value) || 0)
-              }
-              className="max-w-xs"
-            />
-          </Field>
-        </Card>
-
-        {/* Location */}
-        <Card
-          title="Location"
-          description="Your coordinates used for distance calculation in alert messages."
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Latitude">
-              <Input
-                type="number"
-                step={0.0001}
-                min={-90}
-                max={90}
-                value={settings.location?.lat ?? ''}
-                onChange={(e) => updateLocation('lat', e.target.value)}
-                placeholder="e.g. 37.7749"
-              />
-            </Field>
-            <Field label="Longitude">
-              <Input
-                type="number"
-                step={0.0001}
-                min={-180}
-                max={180}
-                value={settings.location?.lon ?? ''}
-                onChange={(e) => updateLocation('lon', e.target.value)}
-                placeholder="e.g. -122.4194"
-              />
-            </Field>
-          </div>
-          <Field
-            label="Notify Distance Threshold (miles)"
-            hint="Only notify when an aircraft is within this distance. Leave blank to notify regardless of distance."
-          >
-            <Input
-              type="number"
-              min={0}
-              step={1}
-              value={settings.notifyDistanceThresholdMi ?? ''}
-              onChange={(e) => {
-                const raw = e.target.value
-                update(
-                  'notifyDistanceThresholdMi',
-                  raw === '' ? null : parseFloat(raw) || null,
-                )
-              }}
-              placeholder="e.g. 50 (leave blank to always notify)"
-              className="max-w-xs"
-            />
-          </Field>
-        </Card>
-
-        {/* Watch Callsigns */}
-        <Card
-          title="Watch Callsigns"
-          description="Alert on any aircraft with one of these exact callsigns."
-        >
-          <TagInput
-            items={settings.watchCallsigns}
-            onChange={(v) => update('watchCallsigns', v)}
-            placeholder="e.g. UAL123 — press Enter to add"
-            transform={(s) => s.toUpperCase()}
-          />
-        </Card>
-
-        {/* Watch Aircraft Types */}
-        <Card
-          title="Watch Aircraft Types"
-          description="Alert on any aircraft matching one of these ICAO type designators, regardless of callsign."
-        >
-          <TagInput
-            items={settings.watchTypes ?? []}
-            onChange={(v) => update('watchTypes', v)}
-            placeholder="e.g. C130 — press Enter to add"
-            transform={(s) => s.toUpperCase()}
-          />
-        </Card>
-
-        {/* Blacklist */}
-        <Card
-          title="Blacklist"
-          description="Never alert on aircraft matching these callsigns or ICAO type codes, even if they would otherwise match."
-        >
-          <Field label="Blacklisted Callsigns" hint="Exact callsign match — e.g. UAL123">
             <TagInput
-              items={settings.blacklistCallsigns ?? []}
-              onChange={(v) => update('blacklistCallsigns', v)}
+              items={settings.watchCallsigns}
+              onChange={(v) => update('watchCallsigns', v)}
               placeholder="e.g. UAL123 — press Enter to add"
               transform={(s) => s.toUpperCase()}
             />
-          </Field>
-          <Field label="Blacklisted Aircraft Types" hint="ICAO type designator — e.g. C172, B738">
+          </Card>
+
+          {/* Watch Aircraft Types */}
+          <Card
+            title="Watch Aircraft Types"
+            description="Alert on any aircraft matching one of these ICAO type designators, regardless of callsign."
+          >
             <TagInput
-              items={settings.blacklistTypes ?? []}
-              onChange={(v) => update('blacklistTypes', v)}
-              placeholder="e.g. C172 — press Enter to add"
+              items={settings.watchTypes ?? []}
+              onChange={(v) => update('watchTypes', v)}
+              placeholder="e.g. C130 — press Enter to add"
               transform={(s) => s.toUpperCase()}
             />
-          </Field>
-        </Card>
+          </Card>
+        </CollapsibleSection>
 
-        {/* Military Detection */}
-        <Card title="Military Detection">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-200">
-                Enable Military Heuristics
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Detect military aircraft by callsign prefix, ICAO category, and
-                database flags
-              </p>
-            </div>
-            <Toggle
-              value={settings.enableMilitaryHeuristics}
-              onChange={(v) => update('enableMilitaryHeuristics', v)}
-            />
-          </div>
-
-          {settings.enableMilitaryHeuristics && (
-            <>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-200">
-                    Ignore Military Without Location
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Suppress notifications for military aircraft that have no
-                    position data until they are seen a certain number of times
-                  </p>
-                </div>
-                <Toggle
-                  value={settings.milNoLocationGrace ?? true}
-                  onChange={(v) => update('milNoLocationGrace', v)}
-                />
-              </div>
-
-              {settings.milNoLocationGrace && (
-                <Field
-                  label="No-Location Threshold"
-                  hint="Number of sightings without location before notifying anyway."
-                >
-                  <Input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={settings.milNoLocationThreshold ?? 5}
-                    onChange={(e) =>
-                      update(
-                        'milNoLocationThreshold',
-                        parseInt(e.target.value) || 5,
-                      )
-                    }
-                    className="max-w-xs"
-                  />
-                </Field>
-              )}
-
-            <Field
-              label="Callsign Prefixes"
-              hint={`${settings.milCallsignPrefixes.length} prefix${settings.milCallsignPrefixes.length !== 1 ? 'es' : ''} — one per line or comma-separated`}
-            >
-              <textarea
-                rows={8}
-                value={settings.milCallsignPrefixes.join('\n')}
-                onChange={(e) =>
-                  update(
-                    'milCallsignPrefixes',
-                    e.target.value
-                      .split(/[\n,]/)
-                      .map((s) => s.trim().toUpperCase())
-                      .filter(Boolean),
-                  )
-                }
-                className={`${inputCls} font-mono resize-y`}
+        {/* ── Blacklist ─────────────────────────────────────────────────── */}
+        <CollapsibleSection title="Blacklist">
+          <Card
+            title="Blacklist"
+            description="Never alert on aircraft matching these callsigns or ICAO type codes, even if they would otherwise match."
+          >
+            <Field label="Blacklisted Callsigns" hint="Exact callsign match — e.g. UAL123">
+              <TagInput
+                items={settings.blacklistCallsigns ?? []}
+                onChange={(v) => update('blacklistCallsigns', v)}
+                placeholder="e.g. UAL123 — press Enter to add"
+                transform={(s) => s.toUpperCase()}
               />
             </Field>
-            </>
-          )}
-        </Card>
+            <Field label="Blacklisted Aircraft Types" hint="ICAO type designator — e.g. C172, B738">
+              <TagInput
+                items={settings.blacklistTypes ?? []}
+                onChange={(v) => update('blacklistTypes', v)}
+                placeholder="e.g. C172 — press Enter to add"
+                transform={(s) => s.toUpperCase()}
+              />
+            </Field>
+          </Card>
+        </CollapsibleSection>
 
-        {/* Webhooks */}
-        <Card
-          title="Webhooks"
-          description="Receive alert notifications via HTTP POST. Payload: { title, message, url }."
-        >
-          <UrlList
-            items={settings.webhookUrls}
-            onChange={(v) => update('webhookUrls', v)}
-          />
-        </Card>
+        {/* ── Notifications ─────────────────────────────────────────────── */}
+        <CollapsibleSection title="Notifications">
+          {/* Webhooks */}
+          <Card
+            title="Webhooks"
+            description="Receive alert notifications via HTTP POST. Payload: { title, message, url }."
+          >
+            <UrlList
+              items={settings.webhookUrls}
+              onChange={(v) => update('webhookUrls', v)}
+            />
+          </Card>
 
-        {/* ntfy.sh */}
-        <Card
-          title="ntfy.sh Notifications"
-          description="Push alerts to a ntfy topic. Leave Topic blank to disable."
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Server URL" hint="Default: https://ntfy.sh">
+          {/* ntfy.sh */}
+          <Card
+            title="ntfy.sh Notifications"
+            description="Push alerts to a ntfy topic. Leave Topic blank to disable."
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Server URL" hint="Default: https://ntfy.sh">
+                <Input
+                  type="url"
+                  value={settings.ntfy?.url ?? 'https://ntfy.sh'}
+                  onChange={(e) => updateNtfy('url', e.target.value)}
+                  placeholder="https://ntfy.sh"
+                />
+              </Field>
+              <Field label="Topic" hint="Leave blank to disable ntfy notifications.">
+                <Input
+                  type="text"
+                  value={settings.ntfy?.topic ?? ''}
+                  onChange={(e) => updateNtfy('topic', e.target.value)}
+                  placeholder="e.g. aircraft-alerts"
+                />
+              </Field>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Access Token" hint="Optional — for protected topics.">
+                <Input
+                  type="password"
+                  value={settings.ntfy?.token ?? ''}
+                  onChange={(e) => updateNtfy('token', e.target.value)}
+                  placeholder="tk_…"
+                  autoComplete="off"
+                />
+              </Field>
+              <Field label="Priority" hint="1 (min) – 5 (max). Default: 3.">
+                <Input
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={settings.ntfy?.priority ?? 3}
+                  onChange={(e) =>
+                    updateNtfy('priority', parseInt(e.target.value) || 3)
+                  }
+                  className="max-w-xs"
+                />
+              </Field>
+            </div>
+          </Card>
+        </CollapsibleSection>
+
+        {/* ── Settings ──────────────────────────────────────────────────── */}
+        <CollapsibleSection title="Settings">
+          {/* Feed Source */}
+          <Card
+            title="Feed Source"
+            description="Where to fetch the ADS-B aircraft list from."
+          >
+            <Field label="ADS-B Feed URL">
               <Input
                 type="url"
-                value={settings.ntfy?.url ?? 'https://ntfy.sh'}
-                onChange={(e) => updateNtfy('url', e.target.value)}
-                placeholder="https://ntfy.sh"
+                value={settings.tar1090Url}
+                onChange={(e) => update('tar1090Url', e.target.value)}
+                placeholder="https://example.com/tar1090"
               />
             </Field>
-            <Field label="Topic" hint="Leave blank to disable ntfy notifications.">
-              <Input
-                type="text"
-                value={settings.ntfy?.topic ?? ''}
-                onChange={(e) => updateNtfy('topic', e.target.value)}
-                placeholder="e.g. aircraft-alerts"
-              />
-            </Field>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Access Token" hint="Optional — for protected topics.">
-              <Input
-                type="password"
-                value={settings.ntfy?.token ?? ''}
-                onChange={(e) => updateNtfy('token', e.target.value)}
-                placeholder="tk_…"
-                autoComplete="off"
-              />
-            </Field>
-            <Field label="Priority" hint="1 (min) – 5 (max). Default: 3.">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field label="Poll Interval (s)">
+                <Input
+                  type="number"
+                  min={1}
+                  max={3600}
+                  value={settings.pollIntervalSec}
+                  onChange={(e) =>
+                    update('pollIntervalSec', parseInt(e.target.value) || 10)
+                  }
+                />
+              </Field>
+              <Field label="Fetch Timeout (ms)">
+                <Input
+                  type="number"
+                  min={1000}
+                  step={1000}
+                  value={settings.fetchTimeoutMs}
+                  onChange={(e) =>
+                    update('fetchTimeoutMs', parseInt(e.target.value) || 15000)
+                  }
+                />
+              </Field>
+              <Field
+                label="Max Aircraft / Poll"
+                hint="Safety cap to prevent runaway processing."
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={10000}
+                  value={settings.maxAircraftPerPoll}
+                  onChange={(e) =>
+                    update('maxAircraftPerPoll', parseInt(e.target.value) || 500)
+                  }
+                />
+              </Field>
+            </div>
+          </Card>
+
+          {/* Alert Settings */}
+          <Card title="Alert Settings">
+            <Field
+              label="Alert Cooldown (s)"
+              hint={`Minimum time between repeated alerts for the same aircraft (${cooldownMin} min).`}
+            >
               <Input
                 type="number"
-                min={1}
-                max={5}
-                value={settings.ntfy?.priority ?? 3}
+                min={0}
+                value={settings.alertCooldownSec}
                 onChange={(e) =>
-                  updateNtfy('priority', parseInt(e.target.value) || 3)
+                  update('alertCooldownSec', parseInt(e.target.value) || 0)
                 }
                 className="max-w-xs"
               />
             </Field>
-          </div>
-        </Card>
+          </Card>
+
+          {/* Location */}
+          <Card
+            title="Location"
+            description="Your coordinates used for distance calculation in alert messages."
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Latitude">
+                <Input
+                  type="number"
+                  step={0.0001}
+                  min={-90}
+                  max={90}
+                  value={settings.location?.lat ?? ''}
+                  onChange={(e) => updateLocation('lat', e.target.value)}
+                  placeholder="e.g. 37.7749"
+                />
+              </Field>
+              <Field label="Longitude">
+                <Input
+                  type="number"
+                  step={0.0001}
+                  min={-180}
+                  max={180}
+                  value={settings.location?.lon ?? ''}
+                  onChange={(e) => updateLocation('lon', e.target.value)}
+                  placeholder="e.g. -122.4194"
+                />
+              </Field>
+            </div>
+            <Field
+              label="Notify Distance Threshold (miles)"
+              hint="Only notify when an aircraft is within this distance. Leave blank to notify regardless of distance."
+            >
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={settings.notifyDistanceThresholdMi ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  update(
+                    'notifyDistanceThresholdMi',
+                    raw === '' ? null : parseFloat(raw) || null,
+                  )
+                }}
+                placeholder="e.g. 50 (leave blank to always notify)"
+                className="max-w-xs"
+              />
+            </Field>
+          </Card>
+
+          {/* Military Detection */}
+          <Card title="Military Detection">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-200">
+                  Enable Military Heuristics
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Detect military aircraft by callsign prefix, ICAO category, and
+                  database flags
+                </p>
+              </div>
+              <Toggle
+                value={settings.enableMilitaryHeuristics}
+                onChange={(v) => update('enableMilitaryHeuristics', v)}
+              />
+            </div>
+
+            {settings.enableMilitaryHeuristics && (
+              <>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-200">
+                      Ignore Military Without Location
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Suppress notifications for military aircraft that have no
+                      position data until they are seen a certain number of times
+                    </p>
+                  </div>
+                  <Toggle
+                    value={settings.milNoLocationGrace ?? true}
+                    onChange={(v) => update('milNoLocationGrace', v)}
+                  />
+                </div>
+
+                {settings.milNoLocationGrace && (
+                  <Field
+                    label="No-Location Threshold"
+                    hint="Number of sightings without location before notifying anyway."
+                  >
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={settings.milNoLocationThreshold ?? 5}
+                      onChange={(e) =>
+                        update(
+                          'milNoLocationThreshold',
+                          parseInt(e.target.value) || 5,
+                        )
+                      }
+                      className="max-w-xs"
+                    />
+                  </Field>
+                )}
+
+                <Field
+                  label="Callsign Prefixes"
+                  hint={`${settings.milCallsignPrefixes.length} prefix${settings.milCallsignPrefixes.length !== 1 ? 'es' : ''} — one per line or comma-separated`}
+                >
+                  <textarea
+                    rows={8}
+                    value={settings.milCallsignPrefixes.join('\n')}
+                    onChange={(e) =>
+                      update(
+                        'milCallsignPrefixes',
+                        e.target.value
+                          .split(/[\n,]/)
+                          .map((s) => s.trim().toUpperCase())
+                          .filter(Boolean),
+                      )
+                    }
+                    className={`${inputCls} font-mono resize-y`}
+                  />
+                </Field>
+              </>
+            )}
+          </Card>
+        </CollapsibleSection>
       </div>
 
       {/* ── Fixed save bar ───────────────────────────────────────────────── */}
