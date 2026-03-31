@@ -19,6 +19,15 @@ function startServer(port, sightingsStore) {
 
   // PUT /api/settings — persist updated settings
   app.put('/api/settings', (req, res) => {
+    if (
+      typeof req.body !== 'object' ||
+      req.body === null ||
+      Array.isArray(req.body)
+    ) {
+      return res
+        .status(400)
+        .json({ error: 'Request body must be a JSON object' })
+    }
     try {
       const updated = settingsStore.update(req.body)
       res.json(updated)

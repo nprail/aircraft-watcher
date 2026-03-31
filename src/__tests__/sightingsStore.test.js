@@ -35,7 +35,7 @@ describe('SightingsStore', () => {
     expect(entry.type).toBe('B738')
     expect(entry.distanceMi).toBe(43) // rounded
     expect(entry.altitude).toBe(8500)
-    expect(entry.speed).toBe(320)   // rounded
+    expect(entry.speed).toBe(320) // rounded
     expect(entry.heading).toBe(270) // rounded
     expect(entry.lat).toBe(37.7749)
     expect(entry.lon).toBe(-122.4194)
@@ -112,7 +112,9 @@ describe('SightingsStore', () => {
     let stateFile
 
     beforeEach(async () => {
-      tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'sightings-test-'))
+      tmpDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), 'sightings-test-'),
+      )
       stateFile = path.join(tmpDir, 'sightings.json')
     })
 

@@ -11,32 +11,58 @@ const {
   isMilitaryMatch,
 } = require('./matcher')
 const { Deduper } = require('./deduper')
-const { formatMessage, haversineDistanceMiles } = require('./formatter')
-const { notifyWebhook } = require('./webhook')
-const { notifyNtfy } = require('./ntfy')
+const { formatMessage } = require('./formatter')
 const aircraftDb = require('./aircraftDb')
+const {
+  fetchAircraft,
+  enrichAircraft,
+  computeDistanceMi,
+  sendNotifications,
+} = require('./utils')
 const { startServer } = require('./server')
 const { SightingsStore } = require('./sightingsStore')
 
 const WEB_PORT = parseInt(process.env.WEB_PORT, 10) || 3000
 const sightingsStore = new SightingsStore()
-startServer(WEB_PORT, sightingsStore)
+const webServer = startServer(WEB_PORT, sightingsStore)
 
 const deduper = new Deduper(config.alertCooldownSec)
+/** @type {Map<string, number>} Counts consecutive sightings of mil aircraft lacking a position fix. */
 const milNoLocationCounts = new Map()
 let running = true
 let pollTimer = null
 
-async function fetchAircraft() {
-  const feedUrl = `${config.tar1090Url.replace(/\/$/, '')}/data/aircraft.json`
-  const res = await fetch(feedUrl, {
-    signal: AbortSignal.timeout(config.fetchTimeoutMs),
-  })
-  if (!res.ok) {
-    throw new Error(`Feed returned HTTP ${res.status} ${res.statusText}`)
+/**
+ * Returns true if this military-heuristic aircraft should be suppressed
+ * because it has appeared fewer than `milNoLocationThreshold` times without
+ * a position fix. Increments (and caps) the per-aircraft counter.
+ */
+function isSuppressedByMilNoLocationGrace(ac) {
+  if (!config.milNoLocationGrace) return false
+  if (isCallsignMatch(ac, config.watchCallsigns)) return false
+  if (isTypeMatch(ac, config.watchTypes)) return false
+  if (!isMilitaryMatch(ac, config.milCallsignPrefixes)) return false
+  if (ac.lat !== undefined || ac.lon !== undefined) return false
+
+  const milKey = ac.hex || ac.r || ac.flight || ac.callsign || ''
+  const threshold = config.milNoLocationThreshold
+  if (!milKey || threshold <= 0) return false
+
+  const count = (milNoLocationCounts.get(milKey) || 0) + 1
+  // Cap at threshold+1 to prevent unbounded counter growth once the grace period is over
+  milNoLocationCounts.set(milKey, Math.min(count, threshold + 1))
+
+  if (count <= threshold) {
+    logger.debug('Military aircraft without location, ignoring', {
+      hex: ac.hex,
+      callsign: ac.flight || ac.callsign,
+      count,
+      threshold,
+    })
+    return true
   }
-  const json = await res.json()
-  return Array.isArray(json.aircraft) ? json.aircraft : []
+
+  return false
 }
 
 async function processPoll() {
@@ -70,19 +96,7 @@ async function processPoll() {
 
   for (const ac of aircraft) {
     try {
-      // Enrich with DB data (registration, type code, military flag)
-      const hex = ac.hex || ac.icao || ''
-      const dbInfo = aircraftDb.getAircraftInfo(hex)
-      if (dbInfo) {
-        if (!ac.r && dbInfo.registration) ac.r = dbInfo.registration
-        if (!ac.t && dbInfo.typeCode) ac.t = dbInfo.typeCode
-        if (dbInfo.isMilitary) ac.military = true
-      }
-
-      if (ac.lat === undefined && ac.lastPosition?.lat !== undefined)
-        ac.lat = ac.lastPosition.lat
-      if (ac.lon === undefined && ac.lastPosition?.lon !== undefined)
-        ac.lon = ac.lastPosition.lon
+      enrichAircraft(ac)
 
       if (!isInteresting(ac, config)) continue
 
@@ -91,20 +105,14 @@ async function processPoll() {
         ac.hex || ac.r || ac.flight || ac.callsign || JSON.stringify(ac)
       if (alreadyAlertedThisCycle.has(cycleKey)) continue
 
-      // Record sighting for any interesting watched aircraft, regardless of
-      // distance threshold or notification cooldown.
+      const distanceMi = computeDistanceMi(ac)
+
+      // Record sightings for watched aircraft regardless of distance threshold
+      // or notification cooldown, so the history is always complete.
       if (
         isCallsignMatch(ac, config.watchCallsigns) ||
         isTypeMatch(ac, config.watchTypes)
       ) {
-        const { lat: cfgLat, lon: cfgLon } = config.location
-        const distanceMi =
-          cfgLat !== null &&
-          cfgLon !== null &&
-          ac.lat !== undefined &&
-          ac.lon !== undefined
-            ? haversineDistanceMiles(cfgLat, cfgLon, ac.lat, ac.lon)
-            : null
         sightingsStore.record(ac, distanceMi, config.alertCooldownSec * 1000)
         newSightings = true
         logger.info('Watched aircraft sighted', {
@@ -113,103 +121,51 @@ async function processPoll() {
         })
       }
 
-      // Military aircraft without location — ignore for a configurable number
-      // of sightings before sending a notification. Only applies to aircraft
-      // matched via military heuristics (not explicit watch lists).
-      if (
-        config.milNoLocationGrace &&
-        !isCallsignMatch(ac, config.watchCallsigns) &&
-        !isTypeMatch(ac, config.watchTypes) &&
-        isMilitaryMatch(ac, config.milCallsignPrefixes) &&
-        ac.lat === undefined &&
-        ac.lon === undefined
-      ) {
-        const milKey = ac.hex || ac.r || ac.flight || ac.callsign || ''
-        const threshold = config.milNoLocationThreshold
-        if (milKey && threshold > 0) {
-          const count = (milNoLocationCounts.get(milKey) || 0) + 1
-          milNoLocationCounts.set(milKey, count)
-          if (count <= threshold) {
-            logger.debug('Military aircraft without location, ignoring', {
-              hex: ac.hex,
-              callsign: ac.flight || ac.callsign,
-              count,
-              threshold,
-            })
-            continue
-          }
-        }
-      }
+      if (isSuppressedByMilNoLocationGrace(ac)) continue
 
-      // Check distance threshold before stamping the deduper — an aircraft that
-      // is currently outside the threshold should not consume its cooldown slot
-      // so that a notification fires correctly once it enters the threshold.
-      const threshold = config.notifyDistanceThresholdMi
-      if (threshold !== null && threshold !== undefined) {
-        const { lat: cfgLat, lon: cfgLon } = config.location
-        if (
-          cfgLat !== null &&
-          cfgLon !== null &&
-          ac.lat !== undefined &&
-          ac.lon !== undefined
-        ) {
-          const distanceMi = haversineDistanceMiles(
-            cfgLat,
-            cfgLon,
-            ac.lat,
-            ac.lon,
-          )
-          if (distanceMi > threshold) {
-            logger.debug(
-              'Aircraft outside distance threshold, skipping notification',
-              {
-                hex: ac.hex,
-                distanceMi: distanceMi.toFixed(1),
-                thresholdMi: threshold,
-              },
-            )
-            continue
-          }
-        }
+      // Skip notification if the aircraft is outside the configured radius.
+      // We check before stamping the deduper so the cooldown slot is only
+      // consumed once the aircraft is actually within range.
+      const distanceThresholdMi = config.notifyDistanceThresholdMi
+      if (
+        distanceThresholdMi !== null &&
+        distanceThresholdMi !== undefined &&
+        distanceMi !== null &&
+        distanceMi > distanceThresholdMi
+      ) {
+        logger.debug(
+          'Aircraft outside distance threshold, skipping notification',
+          {
+            hex: ac.hex,
+            distanceMi: distanceMi.toFixed(1),
+            thresholdMi: distanceThresholdMi,
+          },
+        )
+        continue
       }
 
       if (!deduper.shouldAlert(ac)) continue
 
       alreadyAlertedThisCycle.add(cycleKey)
-
       await deduper
         .save(config.deduperStateFile)
         .catch((err) =>
           logger.warn('Failed to save deduper state', { error: err.message }),
         )
 
+      const callsign = ac.flight || ac.callsign || ac.hex || 'Unknown'
       logger.info('Interesting aircraft detected', {
         hex: ac.hex,
-        callsign: ac.flight || ac.callsign,
+        callsign,
         lat: ac.lat,
         lon: ac.lon,
       })
 
-      const callsign = ac.flight || ac.callsign || ac.hex || 'Unknown'
-      const alertPayload = {
+      await sendNotifications({
         title: `Aircraft Alert: ${callsign}`,
         message: formatMessage(ac),
         url: `${config.tar1090Url.replace(/\/$/, '')}/?icao=${ac.hex || ''}`,
-      }
-
-      try {
-        await notifyWebhook(alertPayload)
-        logger.info('Webhook notified')
-      } catch (webhookErr) {
-        logger.error('Webhook error', { error: webhookErr.message })
-      }
-
-      try {
-        await notifyNtfy(alertPayload)
-        logger.info('ntfy notified')
-      } catch (ntfyErr) {
-        logger.error('ntfy error', { error: ntfyErr.message })
-      }
+      })
     } catch (acErr) {
       logger.error('Error processing aircraft', {
         error: acErr.message,
@@ -218,7 +174,6 @@ async function processPoll() {
     }
   }
 
-  // Persist sightings once per cycle if any new ones were recorded
   if (newSightings) {
     await sightingsStore
       .save(config.sightingsFile)
@@ -232,7 +187,6 @@ async function pollLoop() {
   while (running) {
     await processPoll()
     if (!running) break
-    // Wait for the next poll interval
     await new Promise((resolve) => {
       pollTimer = setTimeout(resolve, config.pollIntervalSec * 1000)
     })
@@ -245,6 +199,10 @@ function shutdown(signal) {
   running = false
   if (pollTimer) clearTimeout(pollTimer)
   aircraftDb.shutdown()
+  webServer.close(() => {
+    logger.info('Web server closed')
+    process.exit(0)
+  })
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'))
@@ -252,34 +210,40 @@ process.on('SIGINT', () => shutdown('SIGINT'))
 
 process.on('uncaughtException', (err) => {
   logger.error('Uncaught exception', { error: err.message, stack: err.stack })
-  // Keep running — log and continue
 })
 
 process.on('unhandledRejection', (reason) => {
   logger.error('Unhandled rejection', { error: String(reason) })
 })
 
-logger.info('Aircraft watcher starting', {
-  tar1090Url: config.tar1090Url,
-  pollIntervalSec: config.pollIntervalSec,
-  alertCooldownSec: config.alertCooldownSec,
-  watchCallsigns: config.watchCallsigns,
-  watchTypes: config.watchTypes,
-  enableMilitaryHeuristics: config.enableMilitaryHeuristics,
-})
-
-aircraftDb
-  .init()
-  .then(() => deduper.load(config.deduperStateFile))
-  .catch((err) =>
-    logger.warn('Failed to load deduper state', { error: err.message }),
-  )
-  .then(() => sightingsStore.load(config.sightingsFile))
-  .catch((err) =>
-    logger.warn('Failed to load sightings', { error: err.message }),
-  )
-  .then(() => pollLoop())
-  .catch((err) => {
-    logger.error('Fatal poll loop error', { error: err.message })
-    process.exit(1)
+async function init() {
+  logger.info('Aircraft watcher starting', {
+    tar1090Url: config.tar1090Url,
+    pollIntervalSec: config.pollIntervalSec,
+    alertCooldownSec: config.alertCooldownSec,
+    watchCallsigns: config.watchCallsigns,
+    watchTypes: config.watchTypes,
+    enableMilitaryHeuristics: config.enableMilitaryHeuristics,
   })
+
+  await aircraftDb.init()
+
+  await deduper
+    .load(config.deduperStateFile)
+    .catch((err) =>
+      logger.warn('Failed to load deduper state', { error: err.message }),
+    )
+
+  await sightingsStore
+    .load(config.sightingsFile)
+    .catch((err) =>
+      logger.warn('Failed to load sightings', { error: err.message }),
+    )
+
+  await pollLoop()
+}
+
+init().catch((err) => {
+  logger.error('Fatal initialization error', { error: err.message })
+  process.exit(1)
+})

@@ -12,7 +12,10 @@ const config = new Proxy(
   {
     get(_, key) {
       if (key === 'deduperStateFile') {
-        return path.join(process.env.DATA_FOLDER || 'data', '.deduper-state.json')
+        return path.join(
+          process.env.DATA_FOLDER || 'data',
+          '.deduper-state.json',
+        )
       }
       if (key === 'sightingsFile') {
         return path.join(process.env.DATA_FOLDER || 'data', '.sightings.json')

@@ -106,7 +106,9 @@ describe('Deduper', () => {
     let stateFile
 
     beforeEach(async () => {
-      tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'deduper-test-'))
+      tmpDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), 'deduper-test-'),
+      )
       stateFile = path.join(tmpDir, 'state.json')
     })
 

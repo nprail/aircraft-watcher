@@ -2,15 +2,13 @@
 
 const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 }
 
+const LOG_LEVEL = (process.env.LOG_LEVEL || 'info').toLowerCase()
+const MIN_LEVEL = LEVELS[LOG_LEVEL] ?? LEVELS.info
+
 function log(level, msg, data) {
-  const entry = {
-    level,
-    time: new Date().toISOString(),
-    msg,
-  }
-  if (data !== undefined && data !== null) {
-    entry.data = data
-  }
+  if (LEVELS[level] < MIN_LEVEL) return
+  const entry = { level, time: new Date().toISOString(), msg }
+  if (data !== undefined && data !== null) entry.data = data
   process.stdout.write(JSON.stringify(entry) + '\n')
 }
 
