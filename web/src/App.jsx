@@ -55,14 +55,18 @@ function Toggle({ value, onChange }) {
 
 // ─── TagInput — add/remove short string items (callsigns, etc.) ────────────
 
-function TagInput({ items, onChange, placeholder, transform }) {
+function TagInput({ items, onChange, onAdd, placeholder, transform }) {
   const [value, setValue] = useState('')
 
   const commit = () => {
     const raw = value.trim()
     if (!raw) return
     const tag = transform ? transform(raw) : raw
-    if (!items.includes(tag)) onChange([...items, tag])
+    if (!items.includes(tag)) {
+      const next = [...items, tag]
+      onChange(next)
+      if (onAdd) onAdd(next)
+    }
     setValue('')
   }
 
@@ -409,6 +413,34 @@ export default function App() {
     [settings],
   )
 
+  const saveWith = useCallback(
+    async (key, value) => {
+      const updated = { ...settings, [key]: value }
+      setSettings(updated)
+      setSaving(true)
+      setSaveStatus(null)
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || `HTTP ${res.status}`)
+        }
+        setSettings(await res.json())
+        setSaveStatus('success')
+      } catch (err) {
+        setSaveStatus({ type: 'error', msg: err.message })
+      } finally {
+        setSaving(false)
+        setTimeout(() => setSaveStatus(null), 5000)
+      }
+    },
+    [settings],
+  )
+
   const handleSave = async () => {
     setSaving(true)
     setSaveStatus(null)
@@ -481,6 +513,7 @@ export default function App() {
             <TagInput
               items={settings.watchCallsigns}
               onChange={(v) => update('watchCallsigns', v)}
+              onAdd={(v) => saveWith('watchCallsigns', v)}
               placeholder="e.g. UAL123 — press Enter to add"
               transform={(s) => s.toUpperCase()}
             />
@@ -494,6 +527,7 @@ export default function App() {
             <TagInput
               items={settings.watchTypes ?? []}
               onChange={(v) => update('watchTypes', v)}
+              onAdd={(v) => saveWith('watchTypes', v)}
               placeholder="e.g. C130 — press Enter to add"
               transform={(s) => s.toUpperCase()}
             />
@@ -510,6 +544,7 @@ export default function App() {
               <TagInput
                 items={settings.blacklistCallsigns ?? []}
                 onChange={(v) => update('blacklistCallsigns', v)}
+                onAdd={(v) => saveWith('blacklistCallsigns', v)}
                 placeholder="e.g. UAL123 — press Enter to add"
                 transform={(s) => s.toUpperCase()}
               />
@@ -518,6 +553,7 @@ export default function App() {
               <TagInput
                 items={settings.blacklistTypes ?? []}
                 onChange={(v) => update('blacklistTypes', v)}
+                onAdd={(v) => saveWith('blacklistTypes', v)}
                 placeholder="e.g. C172 — press Enter to add"
                 transform={(s) => s.toUpperCase()}
               />

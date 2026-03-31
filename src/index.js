@@ -111,7 +111,7 @@ async function processPoll() {
         isCallsignMatch(ac, config.watchCallsigns) ||
         isTypeMatch(ac, config.watchTypes)
       ) {
-        sightingsStore.record(ac, distanceMi, config.alertCooldownSec * 1000)
+        sightingsStore.record(ac, distanceMi)
         newSightings = true
         logger.info('Watched aircraft sighted', {
           callsign: ac.flight || ac.callsign,

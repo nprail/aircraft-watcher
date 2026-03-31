@@ -47,19 +47,15 @@ export class SightingsStore {
   }
 
   /**
-   * Creates a new sighting or updates the most recent one if the same aircraft
-   * was already seen within `cooldownMs` milliseconds.
-   *
-   * Use this instead of `add()` to avoid flooding the list with duplicate
-   * entries during a continuous flyover. Fields that reflect current position
-   * (lat, lon, altitude, speed, heading, distanceMi) are refreshed; the
-   * original `timestamp` is preserved and `lastUpdated` is set.
+   * Updates the most recent sighting for the same hex code (or callsign if no
+   * hex is available), or adds a new entry if none exists. Fields that reflect
+   * current position (lat, lon, altitude, speed, heading, distanceMi) are
+   * refreshed; the original `timestamp` is preserved and `lastUpdated` is set.
    *
    * @param {object} aircraft
    * @param {number|null} distanceMi
-   * @param {number} cooldownMs
    */
-  record(aircraft, distanceMi, cooldownMs) {
+  record(aircraft, distanceMi) {
     const hex =
       (aircraft.hex || aircraft.icao || '').trim().toLowerCase() || null
     const callsign =
@@ -72,7 +68,7 @@ export class SightingsStore {
       return false
     })
 
-    if (existing && now - existing.timestamp < cooldownMs) {
+    if (existing) {
       existing.lastUpdated = now
       existing.lat = aircraft.lat ?? aircraft.lastPosition?.lat ?? existing.lat
       existing.lon = aircraft.lon ?? aircraft.lastPosition?.lon ?? existing.lon
@@ -121,7 +117,22 @@ export class SightingsStore {
     }
     const data = JSON.parse(raw)
     if (Array.isArray(data)) {
-      this._sightings = data.slice(0, MAX_SIGHTINGS)
+      // Dedupe by hex (with callsign fallback), keeping the first occurrence
+      // (which is the newest, since the array is stored newest-first).
+      const seen = new Set()
+      const deduped = []
+      for (const entry of data) {
+        const key = entry.hex
+          ? `hex:${entry.hex}`
+          : entry.callsign
+            ? `cs:${entry.callsign}`
+            : null
+        if (key === null || !seen.has(key)) {
+          if (key !== null) seen.add(key)
+          deduped.push(entry)
+        }
+      }
+      this._sightings = deduped.slice(0, MAX_SIGHTINGS)
     }
   }
 
