@@ -217,6 +217,22 @@ function CollapsibleSection({ title, defaultOpen = false, children }) {
 
 // ─── SightingHistory ──────────────────────────────────────────────────────
 
+const ACTIVE_WINDOW_MS = 5 * 60 * 1000
+
+function isActive(s) {
+  const t = s.lastUpdated ?? s.timestamp ?? 0
+  return Date.now() - t < ACTIVE_WINDOW_MS
+}
+
+function LiveDot() {
+  return (
+    <span className="relative inline-flex items-center justify-center w-2 h-2 shrink-0">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+    </span>
+  )
+}
+
 const matchReasonStyles = {
   callsign: {
     badge: 'bg-blue-500/20 text-blue-300 border border-blue-500/40',
@@ -249,8 +265,9 @@ function MatchBadge({ reason }) {
   )
 }
 
-function SightingCard({ s, fmt, onBlacklistType, blacklistTypes }) {
+function SightingCard({ s, fmt, onBlacklistType, blacklistTypes, tar1090Url }) {
   const styles = matchReasonStyles[s.matchReason]
+  const active = isActive(s)
   const canBlacklist =
     s.type &&
     !(blacklistTypes ?? []).includes(s.type.toUpperCase()) &&
@@ -258,17 +275,31 @@ function SightingCard({ s, fmt, onBlacklistType, blacklistTypes }) {
 
   return (
     <div
-      className={`bg-gray-800/50 border border-gray-700/60 border-l-2 ${
-        styles ? styles.border : 'border-l-transparent'
-      } rounded-xl p-4 space-y-3`}
+      className={`border border-l-2 rounded-xl p-4 space-y-3 transition-colors ${
+        active
+          ? 'bg-green-950/20 border-gray-700/60 border-l-green-500'
+          : `bg-gray-800/50 border-gray-700/60 ${styles ? styles.border : 'border-l-transparent'}`
+      }`}
     >
       {/* Top row: callsign + time */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-blue-400 font-bold text-base leading-tight truncate">
-            {s.callsign ?? '—'}
-          </span>
+          {tar1090Url && s.hex ? (
+            <a
+              href={`${tar1090Url}/?icao=${s.hex}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 font-bold text-base leading-tight truncate hover:text-blue-300 hover:underline"
+            >
+              {s.callsign ?? '—'}
+            </a>
+          ) : (
+            <span className="text-blue-400 font-bold text-base leading-tight truncate">
+              {s.callsign ?? '—'}
+            </span>
+          )}
           <MatchBadge reason={s.matchReason} />
+          {active && <LiveDot />}
           {s.registration && (
             <span className="text-gray-500 text-xs font-mono shrink-0">
               {s.registration}
@@ -384,7 +415,7 @@ function SortableHeader({ label, colKey, sortKey, sortDir, onSort }) {
   )
 }
 
-function SightingHistory({ onBlacklistType, blacklistTypes }) {
+function SightingHistory({ onBlacklistType, blacklistTypes, tar1090Url }) {
   const [sightings, setSightings] = useState(null)
   const [callsignFilter, setCallsignFilter] = useState('')
   const [matchFilter, setMatchFilter] = useState(null)
@@ -409,7 +440,7 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
 
   useEffect(() => {
     load()
-    const interval = setInterval(load, 30_000)
+    const interval = setInterval(load, 10_000)
     return () => clearInterval(interval)
   }, [load])
 
@@ -441,7 +472,8 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
     let result = sightings
     const csq = callsignFilter.trim().toUpperCase()
     if (csq) result = result.filter((s) => s.callsign?.includes(csq))
-    if (matchFilter) result = result.filter((s) => s.matchReason === matchFilter)
+    if (matchFilter)
+      result = result.filter((s) => s.matchReason === matchFilter)
     const dir = sortDir === 'asc' ? 1 : -1
     return [...result].sort((a, b) => {
       let av, bv
@@ -469,7 +501,7 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
   return (
     <Card
       title="Sighting History"
-      description="Each entry records when a watched aircraft was detected. Refreshes every 30 s."
+      description="Each entry records when a watched aircraft was detected. Refreshes every 10 s."
     >
       {/* Controls */}
       <div className="space-y-2">
@@ -639,6 +671,7 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
                 fmt={fmt}
                 onBlacklistType={onBlacklistType}
                 blacklistTypes={blacklistTypes}
+                tar1090Url={tar1090Url}
               />
             ))}
           </div>
@@ -669,9 +702,6 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
                     sortDir={sortDir}
                     onSort={handleSort}
                   />
-                  <th className="px-4 py-3 whitespace-nowrap font-medium">
-                    Reg
-                  </th>
                   <SortableHeader
                     label="Type"
                     colKey="type"
@@ -694,73 +724,85 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
               <tbody className="divide-y divide-gray-800/60">
                 {displayed.map((s, i) => {
                   const rowStyles = matchReasonStyles[s.matchReason]
+                  const active = isActive(s)
                   return (
-                  <tr
-                    key={i}
-                    className={`hover:bg-gray-800/40 transition-colors ${
-                      rowStyles ? rowStyles.row : ''
-                    }`}
-                  >
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
-                      {fmt(s.timestamp)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-blue-400 font-semibold">
-                          {s.callsign ?? '—'}
-                        </span>
-                        <MatchBadge reason={s.matchReason} />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
-                      {s.distanceMi !== null && s.distanceMi !== undefined
-                        ? `${s.distanceMi} mi`
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400 whitespace-nowrap font-mono text-xs">
-                      {s.registration ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {s.type ? (
-                        <span className="inline-flex items-center bg-gray-700/80 text-gray-300 text-xs font-semibold px-2 py-0.5 rounded-full">
-                          {s.type}
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
-                      {s.altitude !== null && s.altitude !== undefined
-                        ? s.altitude.toLocaleString()
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
-                      {s.speed !== null && s.speed !== undefined
-                        ? s.speed
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
-                      {s.heading !== null && s.heading !== undefined
-                        ? `${s.heading}°`
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right">
-                      {s.type &&
-                        !(blacklistTypes ?? []).includes(
-                          s.type.toUpperCase(),
-                        ) &&
-                        onBlacklistType && (
-                          <button
-                            type="button"
-                            onClick={() => onBlacklistType(s.type)}
-                            className="text-xs text-red-400 hover:text-red-300 transition-colors border border-red-900/50 hover:border-red-700 px-2.5 py-1 rounded-lg"
-                            title={`Blacklist type ${s.type}`}
-                          >
-                            Blacklist
-                          </button>
+                    <tr
+                      key={i}
+                      className={`transition-colors ${
+                        active
+                          ? 'bg-green-950/20 hover:bg-green-950/30'
+                          : `hover:bg-gray-800/40 ${rowStyles ? rowStyles.row : ''}`
+                      }`}
+                    >
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
+                        {fmt(s.timestamp)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          {active && <LiveDot />}
+                          {tar1090Url && s.hex ? (
+                            <a
+                              href={`${tar1090Url}/?icao=${s.hex}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-400 font-semibold hover:text-blue-300 hover:underline"
+                            >
+                              {s.callsign ?? '—'}
+                            </a>
+                          ) : (
+                            <span className="text-blue-400 font-semibold">
+                              {s.callsign ?? '—'}
+                            </span>
+                          )}
+                          <MatchBadge reason={s.matchReason} />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                        {s.distanceMi !== null && s.distanceMi !== undefined
+                          ? `${s.distanceMi} mi`
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {s.type ? (
+                          <span className="inline-flex items-center bg-gray-700/80 text-gray-300 text-xs font-semibold px-2 py-0.5 rounded-full">
+                            {s.type}
+                          </span>
+                        ) : (
+                          '—'
                         )}
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                        {s.altitude !== null && s.altitude !== undefined
+                          ? s.altitude.toLocaleString()
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                        {s.speed !== null && s.speed !== undefined
+                          ? s.speed
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                        {s.heading !== null && s.heading !== undefined
+                          ? `${s.heading}°`
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        {s.type &&
+                          !(blacklistTypes ?? []).includes(
+                            s.type.toUpperCase(),
+                          ) &&
+                          onBlacklistType && (
+                            <button
+                              type="button"
+                              onClick={() => onBlacklistType(s.type)}
+                              className="text-xs text-red-400 hover:text-red-300 transition-colors border border-red-900/50 hover:border-red-700 px-2.5 py-1 rounded-lg"
+                              title={`Blacklist type ${s.type}`}
+                            >
+                              Blacklist
+                            </button>
+                          )}
+                      </td>
+                    </tr>
                   )
                 })}
               </tbody>
@@ -910,7 +952,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 pb-20">
-      <div className="max-w-2xl mx-auto px-4 py-10 space-y-5">
+      <div className="max-w-6xl mx-auto px-4 py-10 space-y-5">
         {/* Header */}
         <div className="pb-4 border-b border-gray-800">
           <h1 className="text-2xl font-bold tracking-tight text-white">
@@ -925,6 +967,7 @@ export default function App() {
         <SightingHistory
           onBlacklistType={handleBlacklistType}
           blacklistTypes={settings.blacklistTypes}
+          tar1090Url={settings.tar1090Url}
         />
 
         {/* ── Watchlist ─────────────────────────────────────────────────── */}
@@ -1271,7 +1314,7 @@ export default function App() {
 
       {/* ── Fixed save bar ───────────────────────────────────────────────── */}
       <div className="fixed bottom-0 inset-x-0 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="text-sm min-h-[1.25rem]">
             {saveStatus === 'success' && (
               <span className="text-green-400">✓ Settings saved</span>
