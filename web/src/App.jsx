@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 
 // ─── Primitive UI helpers ──────────────────────────────────────────────────
 
@@ -217,20 +217,58 @@ function CollapsibleSection({ title, defaultOpen = false, children }) {
 
 // ─── SightingHistory ──────────────────────────────────────────────────────
 
+const matchReasonStyles = {
+  callsign: {
+    badge: 'bg-blue-500/20 text-blue-300 border border-blue-500/40',
+    border: 'border-l-blue-500',
+    row: 'bg-blue-950/20',
+  },
+  type: {
+    badge: 'bg-purple-500/20 text-purple-300 border border-purple-500/40',
+    border: 'border-l-purple-500',
+    row: 'bg-purple-950/20',
+  },
+  military: {
+    badge: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
+    border: 'border-l-amber-500/60',
+    row: 'bg-amber-950/10',
+  },
+}
+
+function MatchBadge({ reason }) {
+  if (!reason) return null
+  const styles = matchReasonStyles[reason]
+  if (!styles) return null
+  const labels = { callsign: 'callsign', type: 'type', military: 'mil' }
+  return (
+    <span
+      className={`inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded ${styles.badge}`}
+    >
+      {labels[reason] ?? reason}
+    </span>
+  )
+}
+
 function SightingCard({ s, fmt, onBlacklistType, blacklistTypes }) {
+  const styles = matchReasonStyles[s.matchReason]
   const canBlacklist =
     s.type &&
     !(blacklistTypes ?? []).includes(s.type.toUpperCase()) &&
     onBlacklistType
 
   return (
-    <div className="bg-gray-800/50 border border-gray-700/60 rounded-xl p-4 space-y-3">
+    <div
+      className={`bg-gray-800/50 border border-gray-700/60 border-l-2 ${
+        styles ? styles.border : 'border-l-transparent'
+      } rounded-xl p-4 space-y-3`}
+    >
       {/* Top row: callsign + time */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-blue-400 font-bold text-base leading-tight truncate">
             {s.callsign ?? '—'}
           </span>
+          <MatchBadge reason={s.matchReason} />
           {s.registration && (
             <span className="text-gray-500 text-xs font-mono shrink-0">
               {s.registration}
@@ -310,17 +348,53 @@ function SightingCard({ s, fmt, onBlacklistType, blacklistTypes }) {
   )
 }
 
+// Sort key → comparison accessor
+const SORT_OPTIONS = [
+  { key: 'lastSeen', label: 'Last Seen' },
+  { key: 'callsign', label: 'Callsign' },
+  { key: 'type', label: 'Type' },
+  { key: 'distance', label: 'Distance' },
+]
+
+const MATCH_FILTERS = [
+  { key: null, label: 'All' },
+  { key: 'callsign', label: 'Callsign' },
+  { key: 'type', label: 'Type' },
+  { key: 'military', label: 'Military' },
+]
+
+function SortableHeader({ label, colKey, sortKey, sortDir, onSort }) {
+  const active = sortKey === colKey
+  return (
+    <th
+      className="px-4 py-3 whitespace-nowrap font-medium cursor-pointer select-none group"
+      onClick={() => onSort(colKey)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        <span
+          className={`text-gray-400 transition-opacity ${
+            active ? 'opacity-100' : 'opacity-0 group-hover:opacity-40'
+          }`}
+        >
+          {active && sortDir === 'asc' ? '↑' : '↓'}
+        </span>
+      </div>
+    </th>
+  )
+}
+
 function SightingHistory({ onBlacklistType, blacklistTypes }) {
   const [sightings, setSightings] = useState(null)
-  const [filter, setFilter] = useState('')
+  const [callsignFilter, setCallsignFilter] = useState('')
+  const [matchFilter, setMatchFilter] = useState(null)
+  const [sortKey, setSortKey] = useState('lastSeen')
+  const [sortDir, setSortDir] = useState('desc')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
   const load = useCallback(() => {
-    const url = filter.trim()
-      ? `/api/history?callsign=${encodeURIComponent(filter.trim().toUpperCase())}`
-      : '/api/history'
-    fetch(url)
+    fetch('/api/history')
       .then((r) => r.json())
       .then((data) => {
         setSightings(data)
@@ -331,13 +405,25 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
         setError(true)
         setLoading(false)
       })
-  }, [filter])
+  }, [])
 
   useEffect(() => {
     load()
     const interval = setInterval(load, 30_000)
     return () => clearInterval(interval)
   }, [load])
+
+  const handleSort = useCallback(
+    (key) => {
+      if (sortKey === key) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+      } else {
+        setSortKey(key)
+        setSortDir(key === 'lastSeen' ? 'desc' : 'asc')
+      }
+    },
+    [sortKey],
+  )
 
   const fmt = (ts) => {
     const d = new Date(ts)
@@ -350,50 +436,141 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
     })
   }
 
-  const displayed = sightings ? sightings.slice(0, 20) : []
+  const filtered = useMemo(() => {
+    if (!sightings) return []
+    let result = sightings
+    const csq = callsignFilter.trim().toUpperCase()
+    if (csq) result = result.filter((s) => s.callsign?.includes(csq))
+    if (matchFilter) result = result.filter((s) => s.matchReason === matchFilter)
+    const dir = sortDir === 'asc' ? 1 : -1
+    return [...result].sort((a, b) => {
+      let av, bv
+      if (sortKey === 'lastSeen') {
+        av = a.lastUpdated ?? a.timestamp ?? 0
+        bv = b.lastUpdated ?? b.timestamp ?? 0
+      } else if (sortKey === 'distance') {
+        av = a.distanceMi ?? Infinity
+        bv = b.distanceMi ?? Infinity
+      } else if (sortKey === 'type') {
+        av = a.type ?? ''
+        bv = b.type ?? ''
+      } else {
+        av = a.callsign ?? ''
+        bv = b.callsign ?? ''
+      }
+      if (av < bv) return -dir
+      if (av > bv) return dir
+      return 0
+    })
+  }, [sightings, callsignFilter, matchFilter, sortKey, sortDir])
+
+  const displayed = filtered.slice(0, 20)
 
   return (
     <Card
       title="Sighting History"
       description="Each entry records when a watched aircraft was detected. Refreshes every 30 s."
     >
-      {/* Filter bar */}
-      <div className="relative flex items-center gap-2">
-        <div className="relative flex-1 max-w-xs">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
-          >
-            <path
-              fillRule="evenodd"
-              d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
-              clipRule="evenodd"
+      {/* Controls */}
+      <div className="space-y-2">
+        {/* Row 1: search + count */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-xs">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
+            >
+              <path
+                fillRule="evenodd"
+                d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <Input
+              type="text"
+              value={callsignFilter}
+              onChange={(e) => setCallsignFilter(e.target.value)}
+              placeholder="Filter by callsign…"
+              className="pl-9"
             />
-          </svg>
-          <Input
-            type="text"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter by callsign…"
-            className="pl-9"
-          />
+          </div>
+          {callsignFilter && (
+            <button
+              type="button"
+              onClick={() => setCallsignFilter('')}
+              className="text-sm text-gray-400 hover:text-gray-200 transition-colors px-3 py-2 rounded-lg hover:bg-gray-800"
+            >
+              Clear
+            </button>
+          )}
+          {!loading && !error && sightings && sightings.length > 0 && (
+            <span className="ml-auto text-xs text-gray-600 shrink-0">
+              {Math.min(filtered.length, 20)} of {filtered.length}
+            </span>
+          )}
         </div>
-        {filter && (
-          <button
-            type="button"
-            onClick={() => setFilter('')}
-            className="text-sm text-gray-400 hover:text-gray-200 transition-colors px-3 py-2 rounded-lg hover:bg-gray-800"
-          >
-            Clear
-          </button>
-        )}
-        {!loading && !error && sightings && sightings.length > 0 && (
-          <span className="ml-auto text-xs text-gray-600 shrink-0">
-            {Math.min(sightings.length, 20)} of {sightings.length}
-          </span>
-        )}
+
+        {/* Row 2: match-type filter pills + mobile sort */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {MATCH_FILTERS.map(({ key, label }) => {
+              const active = matchFilter === key
+              const style =
+                key === 'callsign'
+                  ? active
+                    ? 'bg-blue-600 text-white border-blue-500'
+                    : 'border-gray-700 text-gray-400 hover:border-blue-700 hover:text-blue-300'
+                  : key === 'type'
+                    ? active
+                      ? 'bg-purple-600 text-white border-purple-500'
+                      : 'border-gray-700 text-gray-400 hover:border-purple-700 hover:text-purple-300'
+                    : key === 'military'
+                      ? active
+                        ? 'bg-amber-600 text-white border-amber-500'
+                        : 'border-gray-700 text-gray-400 hover:border-amber-700 hover:text-amber-300'
+                      : active
+                        ? 'bg-gray-600 text-white border-gray-500'
+                        : 'border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+              return (
+                <button
+                  key={String(key)}
+                  type="button"
+                  onClick={() => setMatchFilter(key)}
+                  className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                    style
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Mobile-only sort selector */}
+          <div className="md:hidden ml-auto flex items-center gap-1.5">
+            <label className="text-xs text-gray-500">Sort</label>
+            <select
+              value={`${sortKey}:${sortDir}`}
+              onChange={(e) => {
+                const [k, d] = e.target.value.split(':')
+                setSortKey(k)
+                setSortDir(d)
+              }}
+              className="bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="lastSeen:desc">Last Seen ↓</option>
+              <option value="lastSeen:asc">Last Seen ↑</option>
+              <option value="callsign:asc">Callsign A→Z</option>
+              <option value="callsign:desc">Callsign Z→A</option>
+              <option value="type:asc">Type A→Z</option>
+              <option value="type:desc">Type Z→A</option>
+              <option value="distance:asc">Distance ↑</option>
+              <option value="distance:desc">Distance ↓</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Content */}
@@ -471,21 +648,37 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
             <table className="w-full text-sm text-left">
               <thead>
                 <tr className="border-b border-gray-800 bg-gray-900/60 text-gray-500 text-xs uppercase tracking-wide">
-                  <th className="px-4 py-3 whitespace-nowrap font-medium">
-                    Time
-                  </th>
-                  <th className="px-4 py-3 whitespace-nowrap font-medium">
-                    Callsign
-                  </th>
-                  <th className="px-4 py-3 whitespace-nowrap font-medium">
-                    Dist
-                  </th>
+                  <SortableHeader
+                    label="Last Seen"
+                    colKey="lastSeen"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Callsign"
+                    colKey="callsign"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                  />
+                  <SortableHeader
+                    label="Dist"
+                    colKey="distance"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                  />
                   <th className="px-4 py-3 whitespace-nowrap font-medium">
                     Reg
                   </th>
-                  <th className="px-4 py-3 whitespace-nowrap font-medium">
-                    Type
-                  </th>
+                  <SortableHeader
+                    label="Type"
+                    colKey="type"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                  />
                   <th className="px-4 py-3 whitespace-nowrap font-medium">
                     Alt (ft)
                   </th>
@@ -499,18 +692,25 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/60">
-                {displayed.map((s, i) => (
+                {displayed.map((s, i) => {
+                  const rowStyles = matchReasonStyles[s.matchReason]
+                  return (
                   <tr
                     key={i}
-                    className="hover:bg-gray-800/40 transition-colors"
+                    className={`hover:bg-gray-800/40 transition-colors ${
+                      rowStyles ? rowStyles.row : ''
+                    }`}
                   >
                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
                       {fmt(s.timestamp)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-blue-400 font-semibold">
-                        {s.callsign ?? '—'}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-blue-400 font-semibold">
+                          {s.callsign ?? '—'}
+                        </span>
+                        <MatchBadge reason={s.matchReason} />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
                       {s.distanceMi !== null && s.distanceMi !== undefined
@@ -561,7 +761,8 @@ function SightingHistory({ onBlacklistType, blacklistTypes }) {
                         )}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

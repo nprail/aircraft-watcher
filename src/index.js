@@ -105,15 +105,27 @@ async function processPoll() {
 
       const distanceMi = computeDistanceMi(ac)
 
-      // Record sightings for watched aircraft regardless of distance threshold
-      // or notification cooldown, so the history is always complete.
-      if (
-        isCallsignMatch(ac, config.watchCallsigns) ||
-        isTypeMatch(ac, config.watchTypes)
-      ) {
-        sightingsStore.record(ac, distanceMi)
+      // Determine the best match reason for sighting history.
+      const callsignMatch = isCallsignMatch(ac, config.watchCallsigns)
+      const typeMatch = isTypeMatch(ac, config.watchTypes)
+      const matchReason = callsignMatch ? 'callsign' : typeMatch ? 'type' : null
+
+      // Record sightings for watched callsign/type aircraft regardless of
+      // distance threshold or notification cooldown, so the history is always complete.
+      if (matchReason) {
+        sightingsStore.record(ac, distanceMi, matchReason)
         newSightings = true
         logger.info('Watched aircraft sighted', {
+          callsign: ac.flight || ac.callsign,
+          hex: ac.hex,
+          matchReason,
+        })
+      } else if (isMilitaryMatch(ac, config.milCallsignPrefixes)) {
+        // Record military sightings before the no-location grace check so
+        // every detected military aircraft appears in history.
+        sightingsStore.record(ac, distanceMi, 'military')
+        newSightings = true
+        logger.info('Military aircraft sighted', {
           callsign: ac.flight || ac.callsign,
           hex: ac.hex,
         })
