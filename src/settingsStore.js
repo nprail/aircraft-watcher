@@ -19,8 +19,8 @@ export const DEFAULTS = {
   blacklistCallsigns: [],
   blacklistTypes: [],
   enableMilitaryHeuristics: true,
-  milNoLocationGrace: true,
-  milNoLocationThreshold: 5,
+  noLocationGrace: true,
+  noLocationThreshold: 5,
   webhookUrls: [],
   ntfy: {
     url: 'https://ntfy.sh',

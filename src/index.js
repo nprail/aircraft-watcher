@@ -25,35 +25,32 @@ const sightingsStore = new SightingsStore()
 const webServer = startServer(WEB_PORT, sightingsStore)
 
 const deduper = new Deduper(config.alertCooldownSec)
-/** @type {Map<string, number>} Counts consecutive sightings of mil aircraft lacking a position fix. */
-const milNoLocationCounts = new Map()
+/** @type {Map<string, number>} Counts consecutive sightings of aircraft lacking a position fix. */
+const noLocationCounts = new Map()
 /** @type {Set<string>} Aircraft keys that were notified while lacking a position fix. */
 const alertedWithoutLocation = new Set()
 let running = true
 let pollTimer = null
 
 /**
- * Returns true if this military-heuristic aircraft should be suppressed
- * because it has appeared fewer than `milNoLocationThreshold` times without
- * a position fix. Increments (and caps) the per-aircraft counter.
+ * Returns true if this aircraft should be suppressed because it has appeared
+ * fewer than `noLocationThreshold` times without a position fix.
+ * Increments (and caps) the per-aircraft counter.
  */
-function isSuppressedByMilNoLocationGrace(ac) {
-  if (!config.milNoLocationGrace) return false
-  if (isCallsignMatch(ac, config.watchCallsigns)) return false
-  if (isTypeMatch(ac, config.watchTypes)) return false
-  if (!isMilitaryMatch(ac)) return false
+function isSuppressedByNoLocationGrace(ac) {
+  if (!config.noLocationGrace) return false
   if (ac.lat !== undefined || ac.lon !== undefined) return false
 
-  const milKey = ac.hex || ac.r || ac.flight || ac.callsign || ''
-  const threshold = config.milNoLocationThreshold
-  if (!milKey || threshold <= 0) return false
+  const acKey = ac.hex || ac.r || ac.flight || ac.callsign || ''
+  const threshold = config.noLocationThreshold
+  if (!acKey || threshold <= 0) return false
 
-  const count = (milNoLocationCounts.get(milKey) || 0) + 1
+  const count = (noLocationCounts.get(acKey) || 0) + 1
   // Cap at threshold+1 to prevent unbounded counter growth once the grace period is over
-  milNoLocationCounts.set(milKey, Math.min(count, threshold + 1))
+  noLocationCounts.set(acKey, Math.min(count, threshold + 1))
 
   if (count <= threshold) {
-    logger.debug('Military aircraft without location, ignoring', {
+    logger.debug('Aircraft without location, ignoring', {
       hex: ac.hex,
       callsign: ac.flight || ac.callsign,
       count,
@@ -152,7 +149,7 @@ async function processPoll() {
         })
       }
 
-      if (isSuppressedByMilNoLocationGrace(ac)) continue
+      if (isSuppressedByNoLocationGrace(ac)) continue
 
       // Skip notification if the aircraft is outside the configured radius.
       // We check before stamping the deduper so the cooldown slot is only
@@ -186,30 +183,23 @@ async function processPoll() {
 
       const callsign = ac.flight || ac.callsign || ac.hex || 'Unknown'
 
-      if (
-        isMilitaryMatch(ac) &&
-        ac.lat === undefined &&
-        ac.lon === undefined
-      ) {
-        const milKey = ac.hex || ac.r || ac.flight || ac.callsign || ''
-        logger.warn('Notifying for military aircraft without a position fix', {
+      if (ac.lat === undefined && ac.lon === undefined) {
+        const acKey = ac.hex || ac.r || ac.flight || ac.callsign || ''
+        logger.warn('Notifying for aircraft without a position fix', {
           hex: ac.hex,
           callsign,
-          milNoLocationCount: milNoLocationCounts.get(milKey),
-          milNoLocationThreshold: config.milNoLocationThreshold,
-          milNoLocationGrace: config.milNoLocationGrace,
-          inWatchCallsigns: isCallsignMatch(ac, config.watchCallsigns),
-          inWatchTypes: isTypeMatch(ac, config.watchTypes),
+          noLocationCount: noLocationCounts.get(acKey),
+          noLocationThreshold: config.noLocationThreshold,
+          noLocationGrace: config.noLocationGrace,
           ac,
         })
-        alertedWithoutLocation.add(milKey)
+        alertedWithoutLocation.add(acKey)
       }
 
       logger.info('Interesting aircraft detected', {
         hex: ac.hex,
         callsign,
-        lat: ac.lat,
-        lon: ac.lon,
+        ac,
       })
 
       await sendNotifications({

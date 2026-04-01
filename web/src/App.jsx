@@ -1365,6 +1365,41 @@ export default function App() {
                 className="max-w-xs"
               />
             </Field>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-200">
+                  Ignore Aircraft Without Location
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Suppress notifications for aircraft that have no position
+                  data until they are seen a certain number of times
+                </p>
+              </div>
+              <Toggle
+                value={settings.noLocationGrace ?? true}
+                onChange={(v) => update('noLocationGrace', v)}
+              />
+            </div>
+            {settings.noLocationGrace && (
+              <Field
+                label="No-Location Threshold"
+                hint="Number of sightings without location before notifying anyway."
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={settings.noLocationThreshold ?? 5}
+                  onChange={(e) =>
+                    update(
+                      'noLocationThreshold',
+                      parseInt(e.target.value) || 5,
+                    )
+                  }
+                  className="max-w-xs"
+                />
+              </Field>
+            )}
           </Card>
 
           {/* Location */}
@@ -1434,48 +1469,6 @@ export default function App() {
                 onChange={(v) => update('enableMilitaryHeuristics', v)}
               />
             </div>
-
-            {settings.enableMilitaryHeuristics && (
-              <>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-200">
-                      Ignore Military Without Location
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Suppress notifications for military aircraft that have no
-                      position data until they are seen a certain number of
-                      times
-                    </p>
-                  </div>
-                  <Toggle
-                    value={settings.milNoLocationGrace ?? true}
-                    onChange={(v) => update('milNoLocationGrace', v)}
-                  />
-                </div>
-
-                {settings.milNoLocationGrace && (
-                  <Field
-                    label="No-Location Threshold"
-                    hint="Number of sightings without location before notifying anyway."
-                  >
-                    <Input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={settings.milNoLocationThreshold ?? 5}
-                      onChange={(e) =>
-                        update(
-                          'milNoLocationThreshold',
-                          parseInt(e.target.value) || 5,
-                        )
-                      }
-                      className="max-w-xs"
-                    />
-                  </Field>
-                )}
-              </>
-            )}
           </Card>
         </CollapsibleSection>
       </div>

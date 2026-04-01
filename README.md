@@ -67,8 +67,8 @@ All application settings are managed via `data/settings.json` and can be updated
 | `blacklistCallsigns`          | `[]`                                       | Callsigns to never alert on, even if they match the watch list or military heuristics |
 | `blacklistTypes`              | `[]`                                       | ICAO type designators (e.g. `C172`, `B738`) to never alert on       |
 | `enableMilitaryHeuristics`    | `true`                                     | Master toggle for military aircraft detection                        |
-| `milNoLocationGrace`          | `true`                                     | Suppress military alerts until the aircraft has a position fix       |
-| `milNoLocationThreshold`      | `5`                                        | Number of sightings without a position before alerting anyway        |
+| `noLocationGrace`             | `true`                                     | Suppress alerts for aircraft without a position fix until seen a number of times |
+| `noLocationThreshold`         | `5`                                        | Number of sightings without a position before alerting anyway        |
 | `webhookUrls`                 | `[]`                                       | HTTP POST targets for alert notifications                            |
 | `ntfy`                        | _(see below)_                             | ntfy.sh push notification settings                                   |
 | `ntfy.url`                    | `https://ntfy.sh`                          | ntfy server URL                                                      |
