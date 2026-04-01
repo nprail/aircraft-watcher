@@ -23,8 +23,10 @@ export class SightingsStore {
    * @param {string|null} [matchReason] - 'callsign', 'type', or 'military'
    */
   add(aircraft, distanceMi = null, matchReason = null) {
+    const seenAt =
+      aircraft.seen != null ? Date.now() - aircraft.seen * 1000 : Date.now()
     const entry = {
-      timestamp: Date.now(),
+      timestamp: seenAt,
       callsign:
         (aircraft.flight || aircraft.callsign || '').trim().toUpperCase() ||
         null,
@@ -66,7 +68,8 @@ export class SightingsStore {
     const callsign =
       (aircraft.flight || aircraft.callsign || '').trim().toUpperCase() || null
 
-    const now = Date.now()
+    const now =
+      aircraft.seen != null ? Date.now() - aircraft.seen * 1000 : Date.now()
     const existing = this._sightings.find((s) => {
       if (hex && s.hex === hex) return true
       if (!hex && callsign && s.callsign === callsign) return true
@@ -78,7 +81,8 @@ export class SightingsStore {
 
       // Only overwrite a field when the incoming value is non-null/non-undefined
       const newCallsign =
-        (aircraft.flight || aircraft.callsign || '').trim().toUpperCase() || null
+        (aircraft.flight || aircraft.callsign || '').trim().toUpperCase() ||
+        null
       if (newCallsign != null) existing.callsign = newCallsign
 
       const newRegistration = (aircraft.r || '').trim() || null

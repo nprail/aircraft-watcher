@@ -1,5 +1,28 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 
+// ─── useLocalStorage ──────────────────────────────────────────────────────
+
+function useLocalStorage(key, defaultValue) {
+  const [value, setValue] = useState(() => {
+    try {
+      const stored = localStorage.getItem(key)
+      return stored !== null ? JSON.parse(stored) : defaultValue
+    } catch {
+      return defaultValue
+    }
+  })
+  const set = useCallback(
+    (v) => {
+      setValue(v)
+      try {
+        localStorage.setItem(key, JSON.stringify(v))
+      } catch {}
+    },
+    [key],
+  )
+  return [value, set]
+}
+
 // ─── Primitive UI helpers ──────────────────────────────────────────────────
 
 const inputCls =
@@ -265,7 +288,7 @@ function MatchBadge({ reason }) {
   )
 }
 
-function SightingCard({ s, fmt, onBlacklistType, blacklistTypes, tar1090Url }) {
+function SightingCard({ s, fmt, fmtFull, onBlacklistType, blacklistTypes, tar1090Url }) {
   const styles = matchReasonStyles[s.matchReason]
   const active = isActive(s)
   const canBlacklist =
@@ -306,8 +329,8 @@ function SightingCard({ s, fmt, onBlacklistType, blacklistTypes, tar1090Url }) {
             </span>
           )}
         </div>
-        <span className="text-gray-500 text-xs font-mono shrink-0 text-right">
-          {fmt(s.timestamp)}
+        <span className="text-gray-500 text-xs font-mono shrink-0 text-right" title={fmtFull(s.lastUpdated ?? s.timestamp)}>
+          {fmt(s.lastUpdated ?? s.timestamp)}
         </span>
       </div>
 
@@ -415,14 +438,243 @@ function SortableHeader({ label, colKey, sortKey, sortDir, onSort }) {
   )
 }
 
+// ─── SightingsTable — shared mobile-card + desktop-table renderer ─────────
+
+function SightingsTable({
+  sightings,
+  fmt,
+  fmtFull,
+  onBlacklistType,
+  blacklistTypes,
+  tar1090Url,
+  sortKey,
+  sortDir,
+  onSort,
+}) {
+  return (
+    <>
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        {sightings.map((s, i) => (
+          <SightingCard
+            key={i}
+            s={s}
+            fmt={fmt}
+            fmtFull={fmtFull}
+            onBlacklistType={onBlacklistType}
+            blacklistTypes={blacklistTypes}
+            tar1090Url={tar1090Url}
+          />
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-800">
+        <table className="w-full text-sm text-left">
+          <thead>
+            <tr className="border-b border-gray-800 bg-gray-900/60 text-gray-500 text-xs uppercase tracking-wide">
+              {onSort ? (
+                <>
+                  <SortableHeader
+                    label="Last Seen"
+                    colKey="lastSeen"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSort={onSort}
+                  />
+                  <SortableHeader
+                    label="Callsign"
+                    colKey="callsign"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSort={onSort}
+                  />
+                  <SortableHeader
+                    label="Dist"
+                    colKey="distance"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSort={onSort}
+                  />
+                  <SortableHeader
+                    label="Type"
+                    colKey="type"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSort={onSort}
+                  />
+                </>
+              ) : (
+                <>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">Last Seen</th>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">Callsign</th>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">Dist</th>
+                  <th className="px-4 py-3 whitespace-nowrap font-medium">Type</th>
+                </>
+              )}
+              <th className="px-4 py-3 whitespace-nowrap font-medium">Alt (ft)</th>
+              <th className="px-4 py-3 whitespace-nowrap font-medium">Spd (kts)</th>
+              <th className="px-4 py-3 whitespace-nowrap font-medium">Hdg</th>
+              <th className="px-4 py-3 whitespace-nowrap font-medium"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-800/60">
+            {sightings.map((s, i) => {
+              const rowStyles = matchReasonStyles[s.matchReason]
+              const active = isActive(s)
+              return (
+                <tr
+                  key={i}
+                  className={`transition-colors ${
+                    active
+                      ? 'bg-green-950/20 hover:bg-green-950/30'
+                      : `hover:bg-gray-800/40 ${rowStyles ? rowStyles.row : ''}`
+                  }`}
+                >
+                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
+                    <span title={fmtFull(s.lastUpdated ?? s.timestamp)}>
+                      {fmt(s.lastUpdated ?? s.timestamp)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      {active && <LiveDot />}
+                      {tar1090Url && s.hex ? (
+                        <a
+                          href={`${tar1090Url}/?icao=${s.hex}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 font-semibold hover:text-blue-300 hover:underline"
+                        >
+                          {s.callsign ?? s.hex}
+                        </a>
+                      ) : (
+                        <span className="text-blue-400 font-semibold">
+                          {s.callsign ?? s.hex}
+                        </span>
+                      )}
+                      <MatchBadge reason={s.matchReason} />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                    {s.distanceMi !== null && s.distanceMi !== undefined
+                      ? `${s.distanceMi} mi`
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {s.type ? (
+                      <span className="inline-flex items-center bg-gray-700/80 text-gray-300 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {s.type}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                    {s.altitude !== null && s.altitude !== undefined
+                      ? s.altitude.toLocaleString()
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                    {s.speed !== null && s.speed !== undefined ? s.speed : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                    {s.heading !== null && s.heading !== undefined
+                      ? `${s.heading}°`
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-right">
+                    {s.type &&
+                      !(blacklistTypes ?? []).includes(s.type.toUpperCase()) &&
+                      onBlacklistType && (
+                        <button
+                          type="button"
+                          onClick={() => onBlacklistType(s.type)}
+                          className="text-xs text-red-400 hover:text-red-300 transition-colors border border-red-900/50 hover:border-red-700 px-2.5 py-1 rounded-lg"
+                          title={`Blacklist type ${s.type}`}
+                        >
+                          Blacklist
+                        </button>
+                      )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
+// ─── Shared loading / error elements ─────────────────────────────────────
+
+function LoadingRows() {
+  return (
+    <div className="flex items-center justify-center py-10">
+      <svg
+        className="animate-spin h-5 w-5 text-gray-500 mr-2"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+        />
+      </svg>
+      <span className="text-sm text-gray-500">Loading…</span>
+    </div>
+  )
+}
+
+function ErrorRows() {
+  return (
+    <div className="flex items-center gap-2 py-4 px-4 bg-red-950/30 border border-red-900/40 rounded-lg">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        className="w-4 h-4 text-red-400 shrink-0"
+      >
+        <path
+          fillRule="evenodd"
+          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z"
+          clipRule="evenodd"
+        />
+      </svg>
+      <p className="text-sm text-red-400">
+        Failed to load sighting history. Please try again.
+      </p>
+    </div>
+  )
+}
+
 function SightingHistory({ onBlacklistType, blacklistTypes, tar1090Url }) {
   const [sightings, setSightings] = useState(null)
   const [callsignFilter, setCallsignFilter] = useState('')
   const [matchFilter, setMatchFilter] = useState(null)
-  const [sortKey, setSortKey] = useState('lastSeen')
-  const [sortDir, setSortDir] = useState('desc')
+  const [sortKey, setSortKey] = useLocalStorage('aw_history_sort_key', 'lastSeen')
+  const [sortDir, setSortDir] = useLocalStorage('aw_history_sort_dir', 'desc')
+  const [activeSortKey, setActiveSortKey] = useLocalStorage('aw_active_sort_key', 'lastSeen')
+  const [activeSortDir, setActiveSortDir] = useLocalStorage('aw_active_sort_dir', 'desc')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const ticker = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(ticker)
+  }, [])
 
   const load = useCallback(() => {
     fetch('/api/history')
@@ -447,16 +699,28 @@ function SightingHistory({ onBlacklistType, blacklistTypes, tar1090Url }) {
   const handleSort = useCallback(
     (key) => {
       if (sortKey === key) {
-        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+        setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
       } else {
         setSortKey(key)
         setSortDir(key === 'lastSeen' ? 'desc' : 'asc')
       }
     },
-    [sortKey],
+    [sortKey, sortDir, setSortKey, setSortDir],
   )
 
-  const fmt = (ts) => {
+  const handleActiveSort = useCallback(
+    (key) => {
+      if (activeSortKey === key) {
+        setActiveSortDir(activeSortDir === 'asc' ? 'desc' : 'asc')
+      } else {
+        setActiveSortKey(key)
+        setActiveSortDir(key === 'lastSeen' ? 'desc' : 'asc')
+      }
+    },
+    [activeSortKey, activeSortDir, setActiveSortKey, setActiveSortDir],
+  )
+
+  const fmtFull = (ts) => {
     const d = new Date(ts)
     return d.toLocaleString(undefined, {
       month: 'short',
@@ -467,9 +731,45 @@ function SightingHistory({ onBlacklistType, blacklistTypes, tar1090Url }) {
     })
   }
 
-  const filtered = useMemo(() => {
+  const fmt = (ts) => {
+    const ageMs = now - new Date(ts).getTime()
+    if (ageMs < 600_000) {
+      const secs = Math.floor(ageMs / 1000)
+      if (secs < 60) return `${secs}s ago`
+      const mins = Math.floor(secs / 60)
+      const remSecs = secs % 60
+      return remSecs > 0 ? `${mins}m ${remSecs}s ago` : `${mins}m ago`
+    }
+    return fmtFull(ts)
+  }
+
+  const activeSightings = useMemo(() => {
     if (!sightings) return []
-    let result = sightings
+    const dir = activeSortDir === 'asc' ? 1 : -1
+    return [...sightings].filter(isActive).sort((a, b) => {
+      let av, bv
+      if (activeSortKey === 'lastSeen') {
+        av = a.lastUpdated ?? a.timestamp ?? 0
+        bv = b.lastUpdated ?? b.timestamp ?? 0
+      } else if (activeSortKey === 'distance') {
+        av = a.distanceMi ?? Infinity
+        bv = b.distanceMi ?? Infinity
+      } else if (activeSortKey === 'type') {
+        av = a.type ?? ''
+        bv = b.type ?? ''
+      } else {
+        av = a.callsign ?? ''
+        bv = b.callsign ?? ''
+      }
+      if (av < bv) return -dir
+      if (av > bv) return dir
+      return 0
+    })
+  }, [sightings, activeSortKey, activeSortDir])
+
+  const historyFiltered = useMemo(() => {
+    if (!sightings) return []
+    let result = sightings.filter((s) => !isActive(s))
     const csq = callsignFilter.trim().toUpperCase()
     if (csq) result = result.filter((s) => s.callsign?.includes(csq))
     if (matchFilter)
@@ -496,321 +796,210 @@ function SightingHistory({ onBlacklistType, blacklistTypes, tar1090Url }) {
     })
   }, [sightings, callsignFilter, matchFilter, sortKey, sortDir])
 
-  const displayed = filtered.slice(0, 20)
+  const historyDisplayed = historyFiltered.slice(0, 20)
+
+  const tableProps = { fmt, fmtFull, onBlacklistType, blacklistTypes, tar1090Url }
 
   return (
-    <Card
-      title="Sighting History"
-      description="Each entry records when a watched aircraft was detected. Refreshes every 10 s."
-    >
-      {/* Controls */}
-      <div className="space-y-2">
-        {/* Row 1: search + count */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-xs">
+    <>
+      {/* ── Active Aircraft ──────────────────────────────────────────── */}
+      <Card
+        title={
+          <span className="flex items-center gap-2">
+            Active Aircraft
+            {!loading && !error && activeSightings.length > 0 && <LiveDot />}
+          </span>
+        }
+        description="Aircraft currently in range, updated within the last 5 minutes."
+      >
+        {loading ? (
+          <LoadingRows />
+        ) : error ? (
+          <ErrorRows />
+        ) : activeSightings.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
+              viewBox="0 0 24 24"
               fill="currentColor"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
+              className="w-8 h-8 text-gray-700 mb-2"
             >
-              <path
-                fillRule="evenodd"
-                d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
-                clipRule="evenodd"
-              />
+              <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
             </svg>
-            <Input
-              type="text"
-              value={callsignFilter}
-              onChange={(e) => setCallsignFilter(e.target.value)}
-              placeholder="Filter by callsign…"
-              className="pl-9"
-            />
+            <p className="text-sm text-gray-600">No aircraft currently in range.</p>
           </div>
-          {callsignFilter && (
-            <button
-              type="button"
-              onClick={() => setCallsignFilter('')}
-              className="text-sm text-gray-400 hover:text-gray-200 transition-colors px-3 py-2 rounded-lg hover:bg-gray-800"
-            >
-              Clear
-            </button>
-          )}
-          {!loading && !error && sightings && sightings.length > 0 && (
-            <span className="ml-auto text-xs text-gray-600 shrink-0">
-              {Math.min(filtered.length, 20)} of {filtered.length}
-            </span>
-          )}
-        </div>
-
-        {/* Row 2: match-type filter pills + mobile sort */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {MATCH_FILTERS.map(({ key, label }) => {
-              const active = matchFilter === key
-              const style =
-                key === 'callsign'
-                  ? active
-                    ? 'bg-blue-600 text-white border-blue-500'
-                    : 'border-gray-700 text-gray-400 hover:border-blue-700 hover:text-blue-300'
-                  : key === 'type'
-                    ? active
-                      ? 'bg-purple-600 text-white border-purple-500'
-                      : 'border-gray-700 text-gray-400 hover:border-purple-700 hover:text-purple-300'
-                    : key === 'military'
-                      ? active
-                        ? 'bg-amber-600 text-white border-amber-500'
-                        : 'border-gray-700 text-gray-400 hover:border-amber-700 hover:text-amber-300'
-                      : active
-                        ? 'bg-gray-600 text-white border-gray-500'
-                        : 'border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
-              return (
-                <button
-                  key={String(key)}
-                  type="button"
-                  onClick={() => setMatchFilter(key)}
-                  className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                    style
-                  }`}
-                >
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Mobile-only sort selector */}
-          <div className="md:hidden ml-auto flex items-center gap-1.5">
-            <label className="text-xs text-gray-500">Sort</label>
-            <select
-              value={`${sortKey}:${sortDir}`}
-              onChange={(e) => {
-                const [k, d] = e.target.value.split(':')
-                setSortKey(k)
-                setSortDir(d)
-              }}
-              className="bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="lastSeen:desc">Last Seen ↓</option>
-              <option value="lastSeen:asc">Last Seen ↑</option>
-              <option value="callsign:asc">Callsign A→Z</option>
-              <option value="callsign:desc">Callsign Z→A</option>
-              <option value="type:asc">Type A→Z</option>
-              <option value="type:desc">Type Z→A</option>
-              <option value="distance:asc">Distance ↑</option>
-              <option value="distance:desc">Distance ↓</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center py-10">
-          <svg
-            className="animate-spin h-5 w-5 text-gray-500 mr-2"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
+        ) : (
+          <>
+            {/* Mobile-only sort selector for active */}
+            <div className="md:hidden flex items-center gap-1.5 mb-3">
+              <label className="text-xs text-gray-500">Sort</label>
+              <select
+                value={`${activeSortKey}:${activeSortDir}`}
+                onChange={(e) => {
+                  const [k, d] = e.target.value.split(':')
+                  setActiveSortKey(k)
+                  setActiveSortDir(d)
+                }}
+                className="bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="lastSeen:desc">Last Seen ↓</option>
+                <option value="lastSeen:asc">Last Seen ↑</option>
+                <option value="callsign:asc">Callsign A→Z</option>
+                <option value="callsign:desc">Callsign Z→A</option>
+                <option value="type:asc">Type A→Z</option>
+                <option value="type:desc">Type Z→A</option>
+                <option value="distance:asc">Distance ↑</option>
+                <option value="distance:desc">Distance ↓</option>
+              </select>
+            </div>
+            <SightingsTable
+              sightings={activeSightings}
+              {...tableProps}
+              sortKey={activeSortKey}
+              sortDir={activeSortDir}
+              onSort={handleActiveSort}
             />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-            />
-          </svg>
-          <span className="text-sm text-gray-500">Loading…</span>
-        </div>
-      ) : error ? (
-        <div className="flex items-center gap-2 py-4 px-4 bg-red-950/30 border border-red-900/40 rounded-lg">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="w-4 h-4 text-red-400 shrink-0"
-          >
-            <path
-              fillRule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <p className="text-sm text-red-400">
-            Failed to load sighting history. Please try again.
-          </p>
-        </div>
-      ) : !sightings || sightings.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-10 text-center">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="w-8 h-8 text-gray-700 mb-2"
-          >
-            <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
-          </svg>
-          <p className="text-sm text-gray-600">No sightings recorded yet.</p>
-        </div>
-      ) : (
-        <>
-          {/* Mobile card list */}
-          <div className="md:hidden space-y-3">
-            {displayed.map((s, i) => (
-              <SightingCard
-                key={i}
-                s={s}
-                fmt={fmt}
-                onBlacklistType={onBlacklistType}
-                blacklistTypes={blacklistTypes}
-                tar1090Url={tar1090Url}
+          </>
+        )}
+      </Card>
+
+      {/* ── Sighting History ─────────────────────────────────────────── */}
+      <Card
+        title="Sighting History"
+        description="Past sightings. Refreshes every 10 s."
+      >
+        {/* Controls */}
+        <div className="space-y-2">
+          {/* Row 1: search + count */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 max-w-xs">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <Input
+                type="text"
+                value={callsignFilter}
+                onChange={(e) => setCallsignFilter(e.target.value)}
+                placeholder="Filter by callsign…"
+                className="pl-9"
               />
-            ))}
+            </div>
+            {callsignFilter && (
+              <button
+                type="button"
+                onClick={() => setCallsignFilter('')}
+                className="text-sm text-gray-400 hover:text-gray-200 transition-colors px-3 py-2 rounded-lg hover:bg-gray-800"
+              >
+                Clear
+              </button>
+            )}
+            {!loading && !error && sightings && sightings.length > 0 && (
+              <span className="ml-auto text-xs text-gray-600 shrink-0">
+                {Math.min(historyFiltered.length, 20)} of {historyFiltered.length}
+              </span>
+            )}
           </div>
 
-          {/* Desktop table */}
-          <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-800">
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr className="border-b border-gray-800 bg-gray-900/60 text-gray-500 text-xs uppercase tracking-wide">
-                  <SortableHeader
-                    label="Last Seen"
-                    colKey="lastSeen"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={handleSort}
-                  />
-                  <SortableHeader
-                    label="Callsign"
-                    colKey="callsign"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={handleSort}
-                  />
-                  <SortableHeader
-                    label="Dist"
-                    colKey="distance"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={handleSort}
-                  />
-                  <SortableHeader
-                    label="Type"
-                    colKey="type"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onSort={handleSort}
-                  />
-                  <th className="px-4 py-3 whitespace-nowrap font-medium">
-                    Alt (ft)
-                  </th>
-                  <th className="px-4 py-3 whitespace-nowrap font-medium">
-                    Spd (kts)
-                  </th>
-                  <th className="px-4 py-3 whitespace-nowrap font-medium">
-                    Hdg
-                  </th>
-                  <th className="px-4 py-3 whitespace-nowrap font-medium"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800/60">
-                {displayed.map((s, i) => {
-                  const rowStyles = matchReasonStyles[s.matchReason]
-                  const active = isActive(s)
-                  return (
-                    <tr
-                      key={i}
-                      className={`transition-colors ${
-                        active
-                          ? 'bg-green-950/20 hover:bg-green-950/30'
-                          : `hover:bg-gray-800/40 ${rowStyles ? rowStyles.row : ''}`
-                      }`}
-                    >
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
-                        {fmt(s.timestamp)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          {active && <LiveDot />}
-                          {tar1090Url && s.hex ? (
-                            <a
-                              href={`${tar1090Url}/?icao=${s.hex}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-400 font-semibold hover:text-blue-300 hover:underline"
-                            >
-                              {s.callsign ?? s.hex}
-                            </a>
-                          ) : (
-                            <span className="text-blue-400 font-semibold">
-                              {s.callsign ?? s.hex}
-                            </span>
-                          )}
-                          <MatchBadge reason={s.matchReason} />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
-                        {s.distanceMi !== null && s.distanceMi !== undefined
-                          ? `${s.distanceMi} mi`
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {s.type ? (
-                          <span className="inline-flex items-center bg-gray-700/80 text-gray-300 text-xs font-semibold px-2 py-0.5 rounded-full">
-                            {s.type}
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
-                        {s.altitude !== null && s.altitude !== undefined
-                          ? s.altitude.toLocaleString()
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
-                        {s.speed !== null && s.speed !== undefined
-                          ? s.speed
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
-                        {s.heading !== null && s.heading !== undefined
-                          ? `${s.heading}°`
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right">
-                        {s.type &&
-                          !(blacklistTypes ?? []).includes(
-                            s.type.toUpperCase(),
-                          ) &&
-                          onBlacklistType && (
-                            <button
-                              type="button"
-                              onClick={() => onBlacklistType(s.type)}
-                              className="text-xs text-red-400 hover:text-red-300 transition-colors border border-red-900/50 hover:border-red-700 px-2.5 py-1 rounded-lg"
-                              title={`Blacklist type ${s.type}`}
-                            >
-                              Blacklist
-                            </button>
-                          )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          {/* Row 2: match-type filter pills + mobile sort */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {MATCH_FILTERS.map(({ key, label }) => {
+                const active = matchFilter === key
+                const style =
+                  key === 'callsign'
+                    ? active
+                      ? 'bg-blue-600 text-white border-blue-500'
+                      : 'border-gray-700 text-gray-400 hover:border-blue-700 hover:text-blue-300'
+                    : key === 'type'
+                      ? active
+                        ? 'bg-purple-600 text-white border-purple-500'
+                        : 'border-gray-700 text-gray-400 hover:border-purple-700 hover:text-purple-300'
+                      : key === 'military'
+                        ? active
+                          ? 'bg-amber-600 text-white border-amber-500'
+                          : 'border-gray-700 text-gray-400 hover:border-amber-700 hover:text-amber-300'
+                        : active
+                          ? 'bg-gray-600 text-white border-gray-500'
+                          : 'border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                return (
+                  <button
+                    key={String(key)}
+                    type="button"
+                    onClick={() => setMatchFilter(key)}
+                    className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${style}`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Mobile-only sort selector */}
+            <div className="md:hidden ml-auto flex items-center gap-1.5">
+              <label className="text-xs text-gray-500">Sort</label>
+              <select
+                value={`${sortKey}:${sortDir}`}
+                onChange={(e) => {
+                  const [k, d] = e.target.value.split(':')
+                  setSortKey(k)
+                  setSortDir(d)
+                }}
+                className="bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="lastSeen:desc">Last Seen ↓</option>
+                <option value="lastSeen:asc">Last Seen ↑</option>
+                <option value="callsign:asc">Callsign A→Z</option>
+                <option value="callsign:desc">Callsign Z→A</option>
+                <option value="type:asc">Type A→Z</option>
+                <option value="type:desc">Type Z→A</option>
+                <option value="distance:asc">Distance ↑</option>
+                <option value="distance:desc">Distance ↓</option>
+              </select>
+            </div>
           </div>
-        </>
-      )}
-    </Card>
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <LoadingRows />
+        ) : error ? (
+          <ErrorRows />
+        ) : !sightings || sightings.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="w-8 h-8 text-gray-700 mb-2"
+            >
+              <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
+            </svg>
+            <p className="text-sm text-gray-600">No sightings recorded yet.</p>
+          </div>
+        ) : historyDisplayed.length === 0 ? (
+          <p className="text-sm text-gray-600 italic py-4 text-center">
+            No past sightings match the current filters.
+          </p>
+        ) : (
+          <SightingsTable
+            sightings={historyDisplayed}
+            {...tableProps}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
+          />
+        )}
+      </Card>
+    </>
   )
 }
 
