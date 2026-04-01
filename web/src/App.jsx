@@ -747,11 +747,11 @@ function SightingHistory({ onBlacklistType, blacklistTypes, tar1090Url }) {
                               rel="noopener noreferrer"
                               className="text-blue-400 font-semibold hover:text-blue-300 hover:underline"
                             >
-                              {s.callsign ?? '—'}
+                              {s.callsign ?? s.hex}
                             </a>
                           ) : (
                             <span className="text-blue-400 font-semibold">
-                              {s.callsign ?? '—'}
+                              {s.callsign ?? s.hex}
                             </span>
                           )}
                           <MatchBadge reason={s.matchReason} />

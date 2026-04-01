@@ -27,6 +27,8 @@ const webServer = startServer(WEB_PORT, sightingsStore)
 const deduper = new Deduper(config.alertCooldownSec)
 /** @type {Map<string, number>} Counts consecutive sightings of mil aircraft lacking a position fix. */
 const milNoLocationCounts = new Map()
+/** @type {Set<string>} Aircraft keys that were notified while lacking a position fix. */
+const alertedWithoutLocation = new Set()
 let running = true
 let pollTimer = null
 
@@ -96,6 +98,25 @@ async function processPoll() {
     try {
       enrichAircraft(ac)
 
+      // Check if a previously-locationless-alerted aircraft now has a position fix.
+      const acKey = ac.hex || ac.r || ac.flight || ac.callsign || ''
+      if (
+        alertedWithoutLocation.has(acKey) &&
+        (ac.lat !== undefined || ac.lon !== undefined)
+      ) {
+        logger.info(
+          'Military aircraft previously alerted without location now has a position fix',
+          {
+            hex: ac.hex,
+            callsign: ac.flight || ac.callsign,
+            lat: ac.lat,
+            lon: ac.lon,
+            ac,
+          },
+        )
+        alertedWithoutLocation.delete(acKey)
+      }
+
       if (!isInteresting(ac, config)) continue
 
       // Build a cycle-level key to avoid duplicate alerts within the same poll
@@ -164,6 +185,26 @@ async function processPoll() {
         )
 
       const callsign = ac.flight || ac.callsign || ac.hex || 'Unknown'
+
+      if (
+        isMilitaryMatch(ac, config.milCallsignPrefixes) &&
+        ac.lat === undefined &&
+        ac.lon === undefined
+      ) {
+        const milKey = ac.hex || ac.r || ac.flight || ac.callsign || ''
+        logger.warn('Notifying for military aircraft without a position fix', {
+          hex: ac.hex,
+          callsign,
+          milNoLocationCount: milNoLocationCounts.get(milKey),
+          milNoLocationThreshold: config.milNoLocationThreshold,
+          milNoLocationGrace: config.milNoLocationGrace,
+          inWatchCallsigns: isCallsignMatch(ac, config.watchCallsigns),
+          inWatchTypes: isTypeMatch(ac, config.watchTypes),
+          ac,
+        })
+        alertedWithoutLocation.add(milKey)
+      }
+
       logger.info('Interesting aircraft detected', {
         hex: ac.hex,
         callsign,
