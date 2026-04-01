@@ -314,11 +314,10 @@ export function isCallsignMatch(aircraft, watchCallsigns) {
 
 /**
  * Returns true if the aircraft appears to be military.
- * Checks explicit military boolean, category strings, and callsign prefix heuristics.
+ * Checks explicit military boolean and category strings from the database.
  * @param {object} aircraft
- * @param {string[]} milCallsignPrefixes - uppercased list of military callsign prefixes
  */
-export function isMilitaryMatch(aircraft, milCallsignPrefixes) {
+export function isMilitaryMatch(aircraft) {
   // Never flag a known civilian airframe as military (e.g. Cessna, private jets)
   const typeCode = (aircraft.t || aircraft.type || '').trim().toUpperCase()
   if (typeCode && CIVILIAN_TYPE_CODES.has(typeCode)) return false
@@ -329,14 +328,6 @@ export function isMilitaryMatch(aircraft, milCallsignPrefixes) {
   // Category-based detection: look for "military" in the category string
   const category = (aircraft.category || '').toLowerCase()
   if (category.includes('military')) return true
-
-  // Callsign prefix heuristics
-  const callsign = getCallsign(aircraft)
-  if (callsign && milCallsignPrefixes && milCallsignPrefixes.length > 0) {
-    for (const prefix of milCallsignPrefixes) {
-      if (callsign.startsWith(prefix)) return true
-    }
-  }
 
   return false
 }
@@ -383,7 +374,7 @@ export function isInteresting(aircraft, config) {
 
   if (
     config.enableMilitaryHeuristics &&
-    isMilitaryMatch(aircraft, config.milCallsignPrefixes)
+    isMilitaryMatch(aircraft)
   )
     return true
   return false

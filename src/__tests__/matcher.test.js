@@ -88,60 +88,36 @@ describe('isTypeMatch', () => {
 })
 
 describe('isMilitaryMatch', () => {
-  const milPrefixes = ['RCH', 'REACH', 'EAGLE', 'HAWK']
-
   test('returns true when military: true', () => {
-    expect(isMilitaryMatch({ military: true }, milPrefixes)).toBe(true)
+    expect(isMilitaryMatch({ military: true })).toBe(true)
   })
   test('returns false when military: false', () => {
     expect(
-      isMilitaryMatch({ military: false, flight: 'UAL123' }, milPrefixes),
+      isMilitaryMatch({ military: false, flight: 'UAL123' }),
     ).toBe(false)
   })
   test('returns true when category contains "military"', () => {
-    expect(isMilitaryMatch({ category: 'Military' }, milPrefixes)).toBe(true)
+    expect(isMilitaryMatch({ category: 'Military' })).toBe(true)
   })
-  test('returns true for known callsign prefix (flight field)', () => {
-    expect(isMilitaryMatch({ flight: 'RCH210  ' }, milPrefixes)).toBe(true)
-  })
-  test('returns true for known callsign prefix (callsign field)', () => {
-    expect(isMilitaryMatch({ callsign: 'EAGLE21' }, milPrefixes)).toBe(true)
-  })
-  test('returns false for non-military callsign', () => {
-    expect(isMilitaryMatch({ flight: 'UAL456' }, milPrefixes)).toBe(false)
+  test('returns false for non-military aircraft', () => {
+    expect(isMilitaryMatch({ flight: 'UAL456' })).toBe(false)
   })
   test('returns false when no relevant fields', () => {
-    expect(isMilitaryMatch({}, milPrefixes)).toBe(false)
-  })
-  test('prefix match is case-insensitive via uppercased prefix list', () => {
-    expect(isMilitaryMatch({ flight: 'REACH99' }, ['REACH'])).toBe(true)
-  })
-  test('does not partially match mid-string (REACH in NOREACH)', () => {
-    expect(isMilitaryMatch({ flight: 'NOREACH1' }, milPrefixes)).toBe(false)
+    expect(isMilitaryMatch({})).toBe(false)
   })
 
   test('returns false for a Cessna 172 even with military: true', () => {
-    expect(isMilitaryMatch({ t: 'C172', military: true }, milPrefixes)).toBe(
-      false,
-    )
-  })
-  test('returns false for a Cessna 172 with a military callsign prefix', () => {
-    expect(isMilitaryMatch({ t: 'C172', flight: 'EAGLE01' }, milPrefixes)).toBe(
+    expect(isMilitaryMatch({ t: 'C172', military: true })).toBe(
       false,
     )
   })
   test('returns false for a Citation jet (C525) with military: true', () => {
-    expect(isMilitaryMatch({ t: 'C525', military: true }, milPrefixes)).toBe(
-      false,
-    )
-  })
-  test('returns false for a Learjet (LJ45) with military callsign prefix', () => {
-    expect(isMilitaryMatch({ t: 'LJ45', flight: 'RCH001' }, milPrefixes)).toBe(
+    expect(isMilitaryMatch({ t: 'C525', military: true })).toBe(
       false,
     )
   })
   test('type code check is case-insensitive', () => {
-    expect(isMilitaryMatch({ t: 'c172', military: true }, milPrefixes)).toBe(
+    expect(isMilitaryMatch({ t: 'c172', military: true })).toBe(
       false,
     )
   })
@@ -158,7 +134,6 @@ describe('isInteresting', () => {
     watchCallsigns: ['RCH210', 'UAL123'],
     watchTypes: ['C130', 'C17'],
     enableMilitaryHeuristics: true,
-    milCallsignPrefixes: ['RCH', 'EAGLE'],
     blacklistCallsigns: [],
     blacklistTypes: [],
   }
@@ -175,15 +150,15 @@ describe('isInteresting', () => {
   test('returns false for unwatched type with no other match', () => {
     expect(isInteresting({ t: 'B738', flight: 'AAL500' }, config)).toBe(false)
   })
-  test('returns true for military callsign when heuristics enabled', () => {
-    expect(isInteresting({ flight: 'RCH001' }, config)).toBe(true)
+  test('returns true for military: true when heuristics enabled', () => {
+    expect(isInteresting({ military: true }, config)).toBe(true)
   })
   test('returns false for ordinary aircraft', () => {
     expect(isInteresting({ r: 'N99999', flight: 'AAL500' }, config)).toBe(false)
   })
-  test('returns false for military callsign when heuristics disabled', () => {
+  test('returns false for military aircraft when heuristics disabled', () => {
     const cfg = { ...config, enableMilitaryHeuristics: false }
-    expect(isInteresting({ flight: 'RCH001' }, cfg)).toBe(false)
+    expect(isInteresting({ military: true }, cfg)).toBe(false)
   })
   test('returns true for military: true even with heuristics', () => {
     expect(isInteresting({ military: true }, config)).toBe(true)

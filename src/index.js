@@ -41,7 +41,7 @@ function isSuppressedByMilNoLocationGrace(ac) {
   if (!config.milNoLocationGrace) return false
   if (isCallsignMatch(ac, config.watchCallsigns)) return false
   if (isTypeMatch(ac, config.watchTypes)) return false
-  if (!isMilitaryMatch(ac, config.milCallsignPrefixes)) return false
+  if (!isMilitaryMatch(ac)) return false
   if (ac.lat !== undefined || ac.lon !== undefined) return false
 
   const milKey = ac.hex || ac.r || ac.flight || ac.callsign || ''
@@ -141,7 +141,7 @@ async function processPoll() {
           hex: ac.hex,
           matchReason,
         })
-      } else if (isMilitaryMatch(ac, config.milCallsignPrefixes)) {
+      } else if (isMilitaryMatch(ac)) {
         // Record military sightings before the no-location grace check so
         // every detected military aircraft appears in history.
         sightingsStore.record(ac, distanceMi, 'military')
@@ -187,7 +187,7 @@ async function processPoll() {
       const callsign = ac.flight || ac.callsign || ac.hex || 'Unknown'
 
       if (
-        isMilitaryMatch(ac, config.milCallsignPrefixes) &&
+        isMilitaryMatch(ac) &&
         ac.lat === undefined &&
         ac.lon === undefined
       ) {

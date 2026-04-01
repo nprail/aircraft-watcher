@@ -5,7 +5,7 @@ A Node.js service that polls an ADS-B aircraft feed and sends alerts when intere
 ## Features
 
 - Polls a live ADS-B JSON feed (from a [tar1090](https://github.com/wiedehopf/tar1090) instance) at a configurable interval
-- Military aircraft detection: explicit flag from aircraft DB, category strings, or callsign prefix matching
+- Military aircraft detection: explicit flag from aircraft DB or category strings
 - Civilian type exclusion list to suppress false positives (Cessnas, Pipers, etc.)
 - Watch list alerts for specific callsigns or ICAO type designators
 - Blacklist to permanently suppress alerts for specific callsigns or ICAO aircraft types
@@ -67,7 +67,6 @@ All application settings are managed via `data/settings.json` and can be updated
 | `blacklistCallsigns`          | `[]`                                       | Callsigns to never alert on, even if they match the watch list or military heuristics |
 | `blacklistTypes`              | `[]`                                       | ICAO type designators (e.g. `C172`, `B738`) to never alert on       |
 | `enableMilitaryHeuristics`    | `true`                                     | Master toggle for military aircraft detection                        |
-| `milCallsignPrefixes`         | _(60+ entries — see source)_               | Callsign prefixes that imply military (e.g. `RCH`, `REACH`, `REAPER`) |
 | `milNoLocationGrace`          | `true`                                     | Suppress military alerts until the aircraft has a position fix       |
 | `milNoLocationThreshold`      | `5`                                        | Number of sightings without a position before alerting anyway        |
 | `webhookUrls`                 | `[]`                                       | HTTP POST targets for alert notifications                            |

@@ -1426,8 +1426,7 @@ export default function App() {
                   Enable Military Heuristics
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Detect military aircraft by callsign prefix, ICAO category,
-                  and database flags
+                  Detect military aircraft by ICAO category and database flags
                 </p>
               </div>
               <Toggle
@@ -1475,26 +1474,6 @@ export default function App() {
                     />
                   </Field>
                 )}
-
-                <Field
-                  label="Callsign Prefixes"
-                  hint={`${settings.milCallsignPrefixes.length} prefix${settings.milCallsignPrefixes.length !== 1 ? 'es' : ''} — one per line or comma-separated`}
-                >
-                  <textarea
-                    rows={8}
-                    value={settings.milCallsignPrefixes.join('\n')}
-                    onChange={(e) =>
-                      update(
-                        'milCallsignPrefixes',
-                        e.target.value
-                          .split(/[\n,]/)
-                          .map((s) => s.trim().toUpperCase())
-                          .filter(Boolean),
-                      )
-                    }
-                    className={`${inputCls} font-mono resize-y`}
-                  />
-                </Field>
               </>
             )}
           </Card>
